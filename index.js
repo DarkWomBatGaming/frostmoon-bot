@@ -21,8 +21,8 @@ client.on('interactionCreate', async interaction => {
 
     const member = interaction.member;
 
-    const verifiedRole = interaction.guild.roles.cache.get('PASTE_KHANRIANS_ROLE_ID');
-    const wandererRole = interaction.guild.roles.cache.get('PASTE_WANDERER_ROLE_ID');
+    const verifiedRole = interaction.guild.roles.cache.get('1493696754141626540');
+    const wandererRole = interaction.guild.roles.cache.get('1494032348067659949');
 
     try {
       await member.roles.add(verifiedRole);
