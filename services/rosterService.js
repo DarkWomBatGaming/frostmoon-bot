@@ -1,19 +1,16 @@
 const { EmbedBuilder } = require("discord.js");
-
-const CHANNEL_ID = "1494055445596209172";
-const ROLE_KHANRIAN = "1493696754141626540";
+const config = require("../config");
 
 async function updateRoster(guild) {
-  const channel = await guild.channels.fetch(CHANNEL_ID);
+  const channel = await guild.channels.fetch(config.CHANNEL_ID);
 
-  // FORCE fetch all members (fixes cache issue)
-  await guild.members.fetch();
+  await guild.members.fetch(); // FIXES CACHE BUG
 
   const count = guild.members.cache.filter(m =>
-    m.roles.cache.has(ROLE_KHANRIAN)
+    m.roles.cache.has(config.ROLE_KHANRIAN)
   ).size;
 
-  const messages = await channel.messages.fetch({ limit: 20 });
+  const messages = await channel.messages.fetch({ limit: 50 });
 
   let msg = messages.find(m =>
     m.embeds[0]?.title === "📊 FROSTMOON ROSTER"
@@ -22,7 +19,7 @@ async function updateRoster(guild) {
   const embed = new EmbedBuilder()
     .setColor(0x9fe7ff)
     .setTitle("📊 FROSTMOON ROSTER")
-    .setDescription(`❄️ Active Travelers: **${count}**`);
+    .setDescription(`❄️ Members: **${count}**`);
 
   if (msg) {
     await msg.edit({ embeds: [embed] });
