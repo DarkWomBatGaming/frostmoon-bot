@@ -1,3 +1,7 @@
+const { updateRoster } = require("../services/rosterService");
+
+await updateRoster(client.guilds.cache.first());
+
 const { setupVerification } = require("../services/verificationService");
 
 module.exports = {
