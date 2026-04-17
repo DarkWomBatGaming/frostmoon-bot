@@ -57,37 +57,27 @@ client.once("ready", async () => {
 
   const channel = await client.channels.fetch("YOUR_CHANNEL_ID");
 
-  const embed = new EmbedBuilder()
-    .setColor(0x00ffcc)
-    .setTitle("🧬 KHANRIANS ACCESS TERMINAL")
-    .setDescription(
-      "```SYSTEM BOOT SEQUENCE INITIATED...\n" +
-      "LOADING VERIFICATION MODULE...\n" +
-      "SCANNING USER DATABASE...\n" +
-      "READY FOR AUTHENTICATION```"
-    )
-    .addFields(
-      { name: "⚡ STATUS", value: "ONLINE & SECURE", inline: true },
-      { name: "🛡 SECURITY", value: "ANTI-FAKE ACTIVE", inline: true },
-      { name: "📡 NETWORK", value: "STABLE CONNECTION", inline: true }
-    )
-    .setFooter({ text: "Khanrians Verification System • Secure Gateway v3.0" });
+  // ✅ THIS is allowed because we're inside async function
+  if (data.verifyMessageId) {
+    try {
+      const msg = await channel.messages.fetch(data.verifyMessageId);
+      await msg.edit({
+        embeds: [yourEmbed],
+        components: [yourButton]
+      });
+      return;
+    } catch (err) {
+      console.log("Old message not found, creating new one...");
+    }
+  }
 
-  const button = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("open_verify")
-      .setLabel("▶ INITIATE VERIFICATION")
-      .setEmoji("🚀")
-      .setStyle(ButtonStyle.Primary)
-  );
-
-  // keep single message system
-  const channelMsg = await channel.send({
-    embeds: [embed],
-    components: [button]
+  const newMsg = await channel.send({
+    embeds: [yourEmbed],
+    components: [yourButton]
   });
 
-  console.log("Verification panel deployed");
+  data.verifyMessageId = newMsg.id;
+  saveData();
 });
   // ================= NO DUPLICATES LOGIC =================
   if (data.verifyMessageId) {
