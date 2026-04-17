@@ -20,15 +20,6 @@ app.get("/", (req, res) => res.send("Bot Alive"));
 const PORT = process.env.PORT || 3000;
 app.listen(PORT);
 
-// ================= DATA FILE =================
-const DATA_FILE = "./data.json";
-
-let data = { verifyMessageId: null };
-
-if (fs.existsSync(DATA_FILE)) {
-  data = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-}
-
 // ================= IGN DATABASE =================
 const igns = JSON.parse(fs.readFileSync("./igns.json", "utf8"))
   .map(n => n.toLowerCase());
@@ -45,11 +36,6 @@ const KHANRIANS = "1493696754141626540";
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
-
-// ================= SAVE =================
-function saveData() {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-}
 
 // ================= READY EVENT =================
 client.once("ready", async () => {
