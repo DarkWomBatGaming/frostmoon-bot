@@ -1,3 +1,4 @@
+const { updateRoster } = require("./rosterService");
 const fs = require("fs");
 const {
   EmbedBuilder,
@@ -98,6 +99,8 @@ async function handleInteraction(interaction, client) {
 
     await member.roles.add(ROLE_KHANRIAN);
     await member.roles.remove(ROLE_WANDERER);
+    /* UPDATE ROSTER */
+    await updateRoster(interaction.guild);
 
     USED_IGNS.push({ ign, userId: member.id });
     fs.writeFileSync("./data/used_igns.json", JSON.stringify(USED_IGNS, null, 2));
