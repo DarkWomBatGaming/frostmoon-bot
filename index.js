@@ -179,4 +179,138 @@ async function recountTeam(guild) {
   }
 }
 
+/* ================= BUTTON ================= */
+
+await channel.send({
+  embeds: [
+    new EmbedBuilder()
+      .setColor(0x9fe7ff)
+      .setTitle("❄️ FROSTMOON ACCESS TERMINAL")
+      .setDescription(
+        "```\nInitializing Cryo Gate...\nScanning traveler identity...\nAwaiting input...\n```"
+      )
+  ],
+  components: [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("fm_start")
+        .setLabel("Enter Frostmoon Gate")
+        .setStyle(ButtonStyle.Primary)
+    )
+  ]
+});
+
+/* ================= MODAL ================= */
+
+if (interaction.isButton() && interaction.customId === "fm_start") {
+
+  const modal = new ModalBuilder()
+    .setCustomId("fm_ign")
+    .setTitle("Frostmoon Identity Scan");
+
+  const ign = new TextInputBuilder()
+    .setCustomId("ign")
+    .setLabel("Enter your Traveler Name (IGN)")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+
+  modal.addComponents(new ActionRowBuilder().addComponents(ign));
+
+  return interaction.showModal(modal);
+}
+
+/* ================= ANIMATED STYLE CHECK ================= */
+
+if (interaction.isModalSubmit() && interaction.customId === "fm_ign") {
+
+  const ign = interaction.fields.getTextInputValue("ign").toLowerCase();
+  const member = await interaction.guild.members.fetch(interaction.user.id);
+
+  await interaction.deferReply({ ephemeral: true });
+
+  await interaction.editReply("❄️ Scanning Cryo resonance...");
+
+  await new Promise(r => setTimeout(r, 1200));
+
+  await interaction.editReply("🧠 Matching Frostmoon archives...");
+
+  await new Promise(r => setTimeout(r, 1200));
+
+  /* ================= VALIDATION ================= */
+
+    if (member.roles.cache.has(ROLE_KHANRIAN)) {
+    return interaction.editReply("❄️ Already a Frostmoon member.");
+  }
+
+  if (!ALLOWED_IGNS.includes(ign)) {
+    return interaction.editReply("🚫 Identity not found in Cryo registry.");
+  }
+
+  if (USED_IGNS.some(e => e.ign === ign)) {
+    return interaction.editReply("🔒 This identity has already been claimed.");
+  }
+
+  /* ================= CONFIRMATION UI ================= */
+
+    const confirmRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`fm_confirm_${ign}`)
+      .setLabel("Confirm Awakening")
+      .setStyle(ButtonStyle.Success),
+
+    new ButtonBuilder()
+      .setCustomId("fm_cancel")
+      .setLabel("Abort Ritual")
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  return interaction.editReply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0x9fe7ff)
+        .setTitle("❄️ Frostmoon Awakening Seal")
+        .setDescription(
+          `Traveler Identity: **${ign}**\n\n` +
+          "Do you accept the Frostmoon covenant?"
+        )
+    ],
+    components: [confirmRow]
+  });
+}
+
+/* ================= CONFIRM BUTTON (ROLE APPLY) ================= */
+
+if (interaction.isButton() && interaction.customId.startsWith("fm_confirm_")) {
+
+  const ign = interaction.customId.replace("fm_confirm_", "");
+  const member = await interaction.guild.members.fetch(interaction.user.id);
+
+  await member.roles.add(ROLE_KHANRIAN);
+  await member.roles.remove(ROLE_WANDERER);
+
+  USED_IGNS.push({ ign, userId: member.id });
+  fs.writeFileSync("./used_igns.json", JSON.stringify(USED_IGNS, null, 2));
+
+  await recountTeam(interaction.guild);
+
+  return interaction.update({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0x00ffcc)
+        .setTitle("❄️ Awakening Complete")
+        .setDescription("Welcome to Frostmoon, traveler.")
+    ],
+    components: []
+  });
+}
+
+/* ================= CANCEL BUTTON ================= */
+
+if (interaction.isButton() && interaction.customId === "fm_cancel") {
+  return interaction.update({
+    content: "❌ Ritual aborted.",
+    embeds: [],
+    components: []
+  });
+}
 client.login(process.env.TOKEN);
