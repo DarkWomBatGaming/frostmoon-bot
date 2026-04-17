@@ -31,31 +31,55 @@ async function setupVerification(client) {
     lock = JSON.parse(fs.readFileSync(LOCK_FILE));
   }
 
-  if (lock.messageId) {
-    console.log("UI already exists");
-    return;
-  }
+  if (lock.created) return;
 
-  const msg = await channel.send({
+  /* ===== PANEL 1: HEADER ===== */
+  await channel.send({
     embeds: [
       new EmbedBuilder()
-        .setColor(0x9fe7ff)
-        .setTitle("❄️ FROSTMOON ACCESS TERMINAL")
+        .setColor(0x0b1a2b)
+        .setTitle("❄️ FROSTMOON CONTROL CORE")
         .setDescription(
-          "```diff\n+ CRYO CORE ONLINE\n+ SECURITY ACTIVE\n+ READY FOR SCAN\n```"
+          "```yaml\nSTATUS: ONLINE\nCORE: CRYO-STABLE\nSECURITY: ACTIVE\n```"
         )
+    ]
+  });
+
+  /* ===== PANEL 2: ROSTER ===== */
+  await channel.send({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0x132f4c)
+        .setTitle("📊 LIVE ROSTER")
+        .setDescription("Initializing...")
+    ]
+  });
+
+  /* ===== PANEL 3: VERIFICATION ===== */
+  const verifyMsg = await channel.send({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0x1f4e79)
+        .setTitle("🧬 IDENTITY VERIFICATION CONSOLE")
+        .setDescription(
+          "```diff\n+ AWAITING TRAVELER AUTHORIZATION\n+ READY FOR INPUT\n```"
+        )
+        .setFooter({ text: "Frostmoon Security Layer v3.2" })
     ],
     components: [
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("start")
-          .setLabel("▶ Initiate Scan")
+          .setLabel("▶ INITIATE SCAN")
           .setStyle(ButtonStyle.Success)
       )
     ]
   });
 
-  fs.writeFileSync(LOCK_FILE, JSON.stringify({ messageId: msg.id }, null, 2));
+  fs.writeFileSync(
+    LOCK_FILE,
+    JSON.stringify({ created: true, verifyId: verifyMsg.id }, null, 2)
+  );
 }
 
 /* ================= HANDLER ================= */
