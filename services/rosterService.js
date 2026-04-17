@@ -16,10 +16,12 @@ async function updateRoster(guild) {
     m.embeds[0]?.title === "📊 FROSTMOON ROSTER"
   );
 
-  const embed = new EmbedBuilder()
-    .setColor(0x9fe7ff)
-    .setTitle("📊 FROSTMOON ROSTER")
-    .setDescription(`❄️ Members: **${count}**`);
+  cconst embed = new EmbedBuilder()
+  .setColor(0x132f4c)
+  .setTitle("📊 LIVE ROSTER")
+  .setDescription(
+    `\`\`\`yaml\nACTIVE_MEMBERS: ${count}\nSTATUS: STABLE\n\`\`\``
+  );
 
   if (msg) {
     await msg.edit({ embeds: [embed] });
