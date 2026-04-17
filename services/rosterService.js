@@ -23,11 +23,14 @@ async function updateRoster(guild) {
     `\`\`\`yaml\nACTIVE_MEMBERS: ${count}\nSTATUS: STABLE\n\`\`\``
   );
 
-  if (msg) {
-    await msg.edit({ embeds: [embed] });
-  } else {
-    await channel.send({ embeds: [embed] });
-  }
+ const lock = JSON.parse(fs.readFileSync("./data/ui_lock.json"));
+
+const msg = await channel.messages.fetch(lock.rosterId).catch(() => null);
+
+if (msg) {
+  await msg.edit({ embeds: [embed] });
+} else {
+  await channel.send({ embeds: [embed] });
 }
 
 module.exports = { updateRoster };
