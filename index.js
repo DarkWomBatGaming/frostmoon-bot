@@ -2,8 +2,9 @@ const express = require("express");
 const app = express();
 
 app.get("/", (req, res) => res.send("Frostmoon Bot Running"));
-
 app.listen(process.env.PORT || 3000);
+
+/* ================= DISCORD ================= */
 const {
   Client,
   GatewayIntentBits,
@@ -12,10 +13,10 @@ const {
 } = require("discord.js");
 
 const fs = require("fs");
-const path = require("path");
 
 /* ================= DATA ================= */
-const ALLOWED_IGNS = JSON.parse(fs.readFileSync("./igns.json", "utf8")).map(i => i.toLowerCase());
+const ALLOWED_IGNS = JSON.parse(fs.readFileSync("./igns.json", "utf8"))
+  .map(i => i.toLowerCase());
 
 let USED_IGNS = fs.existsSync("./used_igns.json")
   ? JSON.parse(fs.readFileSync("./used_igns.json", "utf8"))
@@ -52,30 +53,48 @@ for (const file of commandFiles) {
 client.once("clientReady", async () => {
   console.log(`❄️ Logged in as ${client.user.tag}`);
 
-  const guild = client.guilds.cache.get(GUILD_ID);
+  try {
+    const guild = client.guilds.cache.get(GUILD_ID);
+    const channel = await client.channels.fetch(REALM_CHANNEL_ID);
 
-  // Register slash commands
-  await guild.commands.set(
-    commandFiles.map(file => {
-      const cmd = require(`./commands/${file}`);
-      return {
-        name: cmd.name,
-        description: cmd.description,
-        options: cmd.options || []
-      };
-    })
-  );
+    if (!channel) {
+      console.log("❌ Channel not found. Check ID.");
+      return;
+    }
 
-  const channel = await client.channels.fetch(REALM_CHANNEL_ID);
+    console.log("✅ Channel found:", channel.name);
 
-  // Clean bot messages
-  const messages = await channel.messages.fetch({ limit: 50 });
-  for (const msg of messages.values()) {
-    if (msg.author.id === client.user.id) await msg.delete().catch(() => {});
+    // Register slash commands
+    await guild.commands.set(
+      commandFiles.map(file => {
+        const cmd = require(`./commands/${file}`);
+        return {
+          name: cmd.name,
+          description: cmd.description,
+          options: cmd.options || []
+        };
+      })
+    );
+
+    // Fetch messages
+    const messages = await channel.messages.fetch({ limit: 10 });
+
+    let rosterMsg = messages.find(
+      m => m.embeds[0]?.title === "📊 FROSTMOON ROSTER"
+    );
+
+    if (!rosterMsg) {
+      console.log("📊 Creating roster message...");
+      await channel.send({ embeds: [createCountEmbed(0)] });
+    } else {
+      console.log("📊 Roster already exists");
+    }
+
+    await recountTeam(guild);
+
+  } catch (err) {
+    console.error("❌ READY ERROR:", err);
   }
-
-  await channel.send({ embeds: [createCountEmbed(0)] });
-  await recountTeam(guild);
 });
 
 /* ================= COMMAND EXECUTION ================= */
@@ -140,15 +159,24 @@ function createCountEmbed(count) {
 }
 
 async function recountTeam(guild) {
-  const channel = await guild.channels.fetch(REALM_CHANNEL_ID);
-  const messages = await channel.messages.fetch({ limit: 10 });
+  try {
+    const channel = await guild.channels.fetch(REALM_CHANNEL_ID);
+    const messages = await channel.messages.fetch({ limit: 10 });
 
-  const count = guild.members.cache.filter(m =>
-    m.roles.cache.has(ROLE_KHANRIAN)
-  ).size;
+    const count = guild.members.cache.filter(m =>
+      m.roles.cache.has(ROLE_KHANRIAN)
+    ).size;
 
-  const msg = messages.find(m => m.embeds[0]?.title === "📊 FROSTMOON ROSTER");
-  if (msg) await msg.edit({ embeds: [createCountEmbed(count)] });
+    const msg = messages.find(m => m.embeds[0]?.title === "📊 FROSTMOON ROSTER");
+
+    if (msg) {
+      await msg.edit({ embeds: [createCountEmbed(count)] });
+    } else {
+      console.log("⚠️ No roster message found to update.");
+    }
+  } catch (err) {
+    console.error("❌ Count update error:", err);
+  }
 }
 
 client.login(process.env.TOKEN);
