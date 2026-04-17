@@ -1,18 +1,19 @@
 require("dotenv").config();
+const express = require("express");
 const fs = require("fs");
-const { Client, GatewayIntentBits, Collection } = require("discord.js");
+const { Client, GatewayIntentBits } = require("discord.js");
+
+const app = express();
+app.get("/", (req, res) => res.send("Frostmoon Alive"));
+app.listen(process.env.PORT || 3000);
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers
-  ]
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
 
-client.commands = new Collection();
+/* LOAD EVENTS */
+const eventFiles = fs.readdirSync("./events");
 
-/* Load events */
-const eventFiles = fs.readdirSync("./events").filter(f => f.endsWith(".js"));
 for (const file of eventFiles) {
   const event = require(`./events/${file}`);
   if (event.once) {
@@ -20,13 +21,6 @@ for (const file of eventFiles) {
   } else {
     client.on(event.name, (...args) => event.execute(...args, client));
   }
-}
-
-/* Load commands */
-const commandFiles = fs.readdirSync("./commands").filter(f => f.endsWith(".js"));
-for (const file of commandFiles) {
-  const command = require(`./commands/${file}`);
-  client.commands.set(command.name, command);
 }
 
 client.login(process.env.TOKEN);
