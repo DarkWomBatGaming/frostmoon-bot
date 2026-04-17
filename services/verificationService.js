@@ -83,18 +83,32 @@ async function setupVerification(client) {
 }
 
 /* ================= HANDLER ================= */
+async function sleep(ms) {
+  return new Promise(res => setTimeout(res, ms));
+}
+
 async function handleInteraction(interaction) {
 
-  /* BUTTON */
+  /* ================= BUTTON ================= */
   if (interaction.isButton() && interaction.customId === "start") {
+
+    await interaction.reply({ content: "> INITIALIZING CRYO SYSTEM...", ephemeral: true });
+
+    await sleep(800);
+    await interaction.editReply("> LOADING SECURITY LAYER...");
+
+    await sleep(800);
+    await interaction.editReply("> ESTABLISHING LINK...");
+
+    await sleep(500);
 
     const modal = new ModalBuilder()
       .setCustomId("ign_modal")
-      .setTitle("Frostmoon Identity Scan");
+      .setTitle("Frostmoon Identity Matrix");
 
     const input = new TextInputBuilder()
       .setCustomId("ign")
-      .setLabel("Enter IGN")
+      .setLabel("Enter your IGN")
       .setStyle(TextInputStyle.Short)
       .setRequired(true);
 
@@ -102,6 +116,104 @@ async function handleInteraction(interaction) {
 
     return interaction.showModal(modal);
   }
+
+  /* ================= MODAL ================= */
+  if (interaction.isModalSubmit() && interaction.customId === "ign_modal") {
+
+    const ign = interaction.fields.getTextInputValue("ign").toLowerCase();
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+
+    await interaction.deferReply({ ephemeral: true });
+
+    await interaction.editReply("> SCANNING DATABASE...");
+    await sleep(900);
+
+    await interaction.editReply("> MATCHING SIGNATURE...");
+    await sleep(900);
+
+    if (member.roles.cache.has(config.ROLE_KHANRIAN)) {
+      return interaction.editReply("🧊 SYSTEM: Already verified.");
+    }
+
+    const used = JSON.parse(fs.readFileSync("./data/used_igns.json"));
+
+    if (!ALLOWED_IGNS.includes(ign)) {
+      return interaction.editReply(
+        "❌ ACCESS DENIED\n> REASON: INVALID IDENTITY"
+      );
+    }
+
+    if (used.find(u => u.ign === ign)) {
+      return interaction.editReply(
+        "🔒 ACCESS DENIED\n> REASON: ID ALREADY CLAIMED"
+      );
+    }
+
+    /* ================= CONFIRM UI ================= */
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`confirm_${ign}`)
+        .setLabel("CONFIRM AWAKENING")
+        .setStyle(ButtonStyle.Success),
+
+      new ButtonBuilder()
+        .setCustomId("cancel")
+        .setLabel("CANCEL")
+        .setStyle(ButtonStyle.Danger)
+    );
+
+    return interaction.editReply({
+      content: "",
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x9fe7ff)
+          .setTitle("IDENTITY DETECTED")
+          .setDescription(`IGN: **${ign}**\nProceed with awakening?`)
+      ],
+      components: [row]
+    });
+  }
+
+  /* ================= CANCEL ================= */
+  if (interaction.isButton() && interaction.customId === "cancel") {
+    return interaction.update({
+      content: "> PROCESS TERMINATED",
+      embeds: [],
+      components: []
+    });
+  }
+
+  /* ================= CONFIRM ================= */
+  if (interaction.isButton() && interaction.customId.startsWith("confirm_")) {
+
+    const ign = interaction.customId.replace("confirm_", "");
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+
+    await interaction.update({ content: "> AUTHORIZING...", embeds: [], components: [] });
+
+    await sleep(700);
+    await interaction.editReply("> GRANTING ACCESS...");
+
+    await sleep(700);
+    await interaction.editReply("> LINKING TO FROSTMOON CORE...");
+
+    await sleep(900);
+
+    await member.roles.add(config.ROLE_KHANRIAN);
+    await member.roles.remove(config.ROLE_WANDERER);
+
+    const used = JSON.parse(fs.readFileSync("./data/used_igns.json"));
+    used.push({ ign, userId: member.id });
+
+    fs.writeFileSync("./data/used_igns.json", JSON.stringify(used, null, 2));
+
+    await updateRoster(interaction.guild);
+
+    return interaction.editReply(
+      "✅ ACCESS GRANTED\n❄️ Welcome to Frostmoon."
+    );
+  }
+}
 
   /* MODAL */
   if (interaction.isModalSubmit() && interaction.customId === "ign_modal") {
