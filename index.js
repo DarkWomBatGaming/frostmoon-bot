@@ -56,7 +56,7 @@ client.once("ready", async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
   const channel = await client.channels.fetch("1494055445596209172");
-
+  
   const embed = new EmbedBuilder()
     .setColor(0x00ffcc)
     .setTitle("🧬 KHANRIANS ACCESS TERMINAL")
@@ -70,32 +70,25 @@ client.once("ready", async () => {
       .setStyle(ButtonStyle.Primary)
   );
 
-  try {
-    if (data.verifyMessageId) {
-      const msg = await channel.messages.fetch(data.verifyMessageId);
-
-      await msg.edit({
-        embeds: [embed],
-        components: [button]
-      });
-
-      console.log("Updated existing verification panel");
-      return;
-    }
-  } catch (err) {
-    console.log("Old message not found, creating new one");
-  }
-
-  const newMsg = await channel.send({
-    embeds: [embed],
-    components: [button]
-  });
-
-  data.verifyMessageId = newMsg.id;
-  saveData();
-  });
+  // 1. Fetch the last few messages in the channel
+  const messages = await channel.messages.fetch({ limit: 10 });
   
-// ... (Your imports and express setup remain the same)
+  // 2. Find if one of them is OUR terminal (sent by the bot with the right title)
+  const existingMsg = messages.find(m => 
+    m.author.id === client.user.id && 
+    m.embeds[0]?.title === "🧬 KHANRIANS ACCESS TERMINAL"
+  );
+
+  if (existingMsg) {
+    // 3. If it exists, just update it!
+    await existingMsg.edit({ embeds: [embed], components: [button] });
+    console.log("Found existing terminal. System updated.");
+  } else {
+    // 4. If it doesn't exist, send a fresh one
+    await channel.send({ embeds: [embed], components: [button] });
+    console.log("No terminal found. Deployed new instance.");
+  }
+});
 
 // ================= INTERACTIONS =================
 client.on(Events.InteractionCreate, async interaction => {
