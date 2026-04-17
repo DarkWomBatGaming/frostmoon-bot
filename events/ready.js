@@ -1,8 +1,5 @@
-const { updateRoster } = require("../services/rosterService");
-
-await updateRoster(client.guilds.cache.first());
-
 const { setupVerification } = require("../services/verificationService");
+const { updateRoster } = require("../services/rosterService");
 
 module.exports = {
   name: "ready",
@@ -12,5 +9,8 @@ module.exports = {
     console.log(`❄️ Logged in as ${client.user.tag}`);
 
     await setupVerification(client);
+
+    const guild = client.guilds.cache.first();
+    if (guild) await updateRoster(guild);
   }
 };
