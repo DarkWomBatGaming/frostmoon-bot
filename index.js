@@ -1,67 +1,82 @@
-const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
+const { 
+  Client, GatewayIntentBits, 
+  ActionRowBuilder, ButtonBuilder, ButtonStyle,
+  ModalBuilder, TextInputBuilder, TextInputStyle,
+  Events
+} = require('discord.js');
+
 const express = require('express');
 const fs = require('fs');
 
-// ===== EXPRESS (for Render) =====
+// ===== EXPRESS (Render keep-alive) =====
 const app = express();
 app.get('/', (req, res) => res.send('Bot alive'));
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on ${PORT}`));
+app.listen(PORT);
 
-// ===== LOAD IGNS =====
-const igns = JSON.parse(fs.readFileSync('./igns.json', 'utf8')).map(n => n.toLowerCase());
-
-// ===== DISCORD CLIENT =====
+// ===== BOT =====
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
 
 // ===== ROLE IDS =====
-const WANDERERS_ROLE = '1494032348067659949';
-const KHANRIANS_ROLE = '1493696754141626540';
+const WANDERERS = "1494032348067659949";
+const KHANRIANS = "1493696754141626540";
 
-// ===== SLASH COMMAND SETUP =====
-const commands = [
-  new SlashCommandBuilder()
-    .setName('verify')
-    .setDescription('Verify your IGN')
-    .addStringOption(option =>
-      option.setName('username')
-        .setDescription('Your in-game name')
-        .setRequired(true)
-    )
-].map(cmd => cmd.toJSON());
+// ===== IGN DATABASE =====
+const igns = JSON.parse(fs.readFileSync('./igns.json', 'utf8'))
+  .map(n => n.toLowerCase());
 
-// ===== REGISTER COMMAND =====
-const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
-
-(async () => {
-  try {
-    await rest.put(
-  Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
-  { body: commands }
-);
-    console.log('Slash command registered');
-  } catch (error) {
-    console.error(error);
-  }
-})();
-
-// ===== BOT READY =====
-client.once('ready', () => {
+client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
+
+  // Send verify button to a channel (CHANGE CHANNEL ID)
+  const channel = await client.channels.fetch("YOUR_CHANNEL_ID");
+
+  const button = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('open_verify')
+      .setLabel('Verify IGN')
+      .setStyle(ButtonStyle.Success)
+  );
+
+  channel.send({
+    content: "Click below to verify your IGN:",
+    components: [button]
+  });
 });
 
-// ===== COMMAND HANDLER =====
-client.on('interactionCreate', async interaction => {
-  if (!interaction.isChatInputCommand()) return;
+// ===== BUTTON CLICK =====
+client.on(Events.InteractionCreate, async interaction => {
 
-  if (interaction.commandName === 'verify') {
-    const username = interaction.options.getString('username').toLowerCase();
+  // OPEN MODAL
+  if (interaction.isButton() && interaction.customId === 'open_verify') {
 
-    if (!igns.includes(username)) {
+    const modal = new ModalBuilder()
+      .setCustomId('verify_modal')
+      .setTitle('IGN Verification');
+
+    const ignInput = new TextInputBuilder()
+      .setCustomId('ign')
+      .setLabel('Enter your In-Game Name')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true);
+
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(ignInput)
+    );
+
+    return interaction.showModal(modal);
+  }
+
+  // HANDLE MODAL SUBMIT
+  if (interaction.isModalSubmit() && interaction.customId === 'verify_modal') {
+
+    const ign = interaction.fields.getTextInputValue('ign').toLowerCase();
+
+    if (!igns.includes(ign)) {
       return interaction.reply({
-        content: '❌ You are not in the team list.',
+        content: "❌ IGN not found in team list.",
         ephemeral: true
       });
     }
@@ -69,23 +84,22 @@ client.on('interactionCreate', async interaction => {
     try {
       const member = interaction.member;
 
-      await member.roles.remove(WANDERERS_ROLE);
-      await member.roles.add(KHANRIANS_ROLE);
+      await member.roles.remove(WANDERERS);
+      await member.roles.add(KHANRIANS);
 
-      await interaction.reply({
-        content: '✅ You are verified! Role updated.',
+      return interaction.reply({
+        content: "✅ Verified successfully! Roles updated.",
         ephemeral: true
       });
 
     } catch (err) {
       console.error(err);
-      await interaction.reply({
-        content: '⚠️ Error updating roles.',
+      return interaction.reply({
+        content: "⚠️ Error updating roles.",
         ephemeral: true
       });
     }
   }
 });
 
-// ===== LOGIN =====
 client.login(process.env.TOKEN);
