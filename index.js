@@ -193,37 +193,9 @@ client.on(Events.InteractionCreate, async interaction => {
         await member.roles.remove(WANDERERS).catch(() => console.log("Wanderer role not found on user."));
         await member.roles.add(KHANRIANS);
 
-        await interaction.editReply("✅ **ACCESS GRANTED.** Welcome to the Khanrians.");
-        
-      } catch (err) {
-        console.error(err);
-        interaction.editReply("⚠️ **SYSTEM ERROR:** Could not update roles. Contact an admin.");
-      }
-    }, 3500);
-  }
-});
-
-// ================= HELPER FUNCTION: UPDATE COUNT =================
-async function updatePlayerCount(guild, change) {
-  try {
-    const counterChannel = await guild.channels.fetch(COUNTER_CHANNEL_ID);
-    if (!counterChannel) return;
-
-    // Get current number from the channel name (e.g., "Players: 42")
-    const currentName = counterChannel.name;
-    const currentCount = parseInt(currentName.replace(/\D/g, "")) || 0;
-    
-    const newCount = Math.max(0, currentCount + change); // Ensure it never goes below 0
-    await counterChannel.setName(`📊 Team Size: ${newCount}`);
-  } catch (err) {
-    console.error("Error updating counter channel:", err);
-  }
-}
-
-// ================= LOGGING: WHEN USER VERIFIES (ADD TO YOUR MODAL CODE) =================
+        // ================= LOGGING: WHEN USER VERIFIES (ADD TO YOUR MODAL CODE) =================
 // Inside your modal success block, right after member.roles.add(KHANRIANS):
-
-const logChannel = await interaction.guild.channels.fetch(LOG_CHANNEL_ID);
+        const logChannel = await interaction.guild.channels.fetch(LOG_CHANNEL_ID);
 const logEmbed = new EmbedBuilder()
   .setColor(0x00ff00)
   .setTitle("📥 NEW TEAM MEMBER")
@@ -251,5 +223,31 @@ client.on(Events.GuildMemberRemove, async member => {
   }
 });
 
+        await interaction.editReply("✅ **ACCESS GRANTED.** Welcome to the Khanrians.");
+        
+      } catch (err) {
+        console.error(err);
+        interaction.editReply("⚠️ **SYSTEM ERROR:** Could not update roles. Contact an admin.");
+      }
+    }, 3500);
+  }
+});
+
+// ================= HELPER FUNCTION: UPDATE COUNT =================
+async function updatePlayerCount(guild, change) {
+  try {
+    const counterChannel = await guild.channels.fetch(COUNTER_CHANNEL_ID);
+    if (!counterChannel) return;
+
+    // Get current number from the channel name (e.g., "Players: 42")
+    const currentName = counterChannel.name;
+    const currentCount = parseInt(currentName.replace(/\D/g, "")) || 0;
+    
+    const newCount = Math.max(0, currentCount + change); // Ensure it never goes below 0
+    await counterChannel.setName(`📊 Team Size: ${newCount}`);
+  } catch (err) {
+    console.error("Error updating counter channel:", err);
+  }
+}
 
 client.login(process.env.TOKEN);
