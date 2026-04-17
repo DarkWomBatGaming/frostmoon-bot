@@ -96,7 +96,6 @@ client.once("ready", async () => {
 });
   data.verifyMessageId = newMsg.id;
   saveData();
-);
   
 // ================= INTERACTIONS =================
 client.on(Events.InteractionCreate, async interaction => {
