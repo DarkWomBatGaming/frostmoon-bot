@@ -8,14 +8,13 @@ const {
   TextInputBuilder,
   TextInputStyle,
   EmbedBuilder,
-  Events,
-  PermissionsBitField
+  Events
 } = require("discord.js");
 
 const express = require("express");
 const fs = require("fs");
 
-/* ================= EXPRESS ================= */
+/* ================= KEEP ALIVE ================= */
 const app = express();
 app.get("/", (_, res) => res.send("Frostmoon System Online"));
 app.listen(process.env.PORT || 3000);
@@ -49,22 +48,21 @@ client.once("ready", async () => {
   const guild = client.guilds.cache.get(GUILD_ID);
   const channel = await client.channels.fetch(STATUS_CHANNEL_ID);
 
-  /* ===== Ensure TWO fixed messages exist ===== */
-  const messages = await channel.messages.fetch({ limit: 10 });
+  /* ===== DELETE ALL OLD BOT MESSAGES ===== */
+  const messages = await channel.messages.fetch({ limit: 50 });
+  const botMessages = messages.filter(m => m.author.id === client.user.id);
 
-  let countMsg = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title === "📊 FROSTMOON ROSTER");
-  let terminalMsg = messages.find(m => m.author.id === client.user.id && m.embeds[0]?.title === "❄️ FROSTMOON VERIFICATION TERMINAL");
-
-  if (!countMsg) {
-    countMsg = await channel.send({ embeds: [createCountEmbed(0)] });
+  for (const msg of botMessages.values()) {
+    await msg.delete().catch(() => {});
   }
 
-  if (!terminalMsg) {
-    terminalMsg = await channel.send({
-      embeds: [createTerminalEmbed()],
-      components: [terminalButtons()]
-    });
-  }
+  /* ===== CREATE CLEAN STATUS UI ===== */
+  await channel.send({ embeds: [createCountEmbed(0)] });
+
+  await channel.send({
+    embeds: [createTerminalEmbed()],
+    components: [terminalButtons()]
+  });
 
   await recountTeam(guild);
 });
@@ -96,7 +94,10 @@ client.on(Events.InteractionCreate, async interaction => {
     const ign = interaction.fields.getTextInputValue("ign").toLowerCase();
 
     if (!igns.includes(ign)) {
-      return interaction.reply({ content: "🚫 Cryo signature not recognized.", ephemeral: true });
+      return interaction.reply({
+        content: "🚫 Cryo signature not recognized.",
+        ephemeral: true
+      });
     }
 
     const confirmRow = new ActionRowBuilder().addComponents(
@@ -114,13 +115,19 @@ client.on(Events.InteractionCreate, async interaction => {
     });
   }
 
-  /* ===== STEP 3: CONFIRM ===== */
-  if (interaction.isButton() && interaction.customId.startsWith("wizard_confirm_")) {
+  /* ===== STEP 3: CONFIRM & VERIFY ===== */
+  if (
+    interaction.isButton() &&
+    interaction.customId.startsWith("wizard_confirm_")
+  ) {
     const ign = interaction.customId.replace("wizard_confirm_", "");
     const userId = interaction.user.id;
 
     if (cooldown.has(userId)) {
-      return interaction.reply({ content: "⏳ Frostmoon systems cooling down...", ephemeral: true });
+      return interaction.reply({
+        content: "⏳ Frostmoon systems cooling down...",
+        ephemeral: true
+      });
     }
 
     cooldown.set(userId, true);
@@ -141,6 +148,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
     setTimeout(async () => {
       const member = await interaction.guild.members.fetch(userId);
+
       if (member.roles.cache.has(ROLE_KHANRIAN)) {
         return interaction.editReply("🛡️ Already authorized.");
       }
@@ -217,7 +225,10 @@ async function recountTeam(guild) {
     m.roles.cache.has(ROLE_KHANRIAN)
   ).size;
 
-  const countMsg = messages.find(m => m.embeds[0]?.title === "📊 FROSTMOON ROSTER");
+  const countMsg = messages.find(
+    m => m.embeds[0]?.title === "📊 FROSTMOON ROSTER"
+  );
+
   if (countMsg) {
     await countMsg.edit({ embeds: [createCountEmbed(count)] });
   }
