@@ -124,14 +124,21 @@ client.on(Events.InteractionCreate, async interaction => {
     const ign = interaction.fields.getTextInputValue("ign").toLowerCase();
     const userId = interaction.user.id;
 
-    if (cooldown.has(userId)) {
-      return interaction.reply({
-        content: "⏳ SYSTEM COOLING DOWN... TRY AGAIN SHORTLY",
-        ephemeral: true
-      });
-    }
+   if (cooldown.has(userId)) {
+  const expireTime = cooldown.get(userId);
 
-    cooldown.set(userId, Date.now() + 10000);
+  if (Date.now() < expireTime) {
+    return interaction.reply({
+      content: "⏳ SYSTEM COOLING DOWN... TRY AGAIN SHORTLY",
+      ephemeral: true
+    });
+  }
+
+  // expired → remove it
+  cooldown.delete(userId);
+}
+
+   cooldown.set(userId, Date.now() + 10000); // 10 seconds
 
     await interaction.reply({
       content: "🧬 INITIALIZING AUTH MODULE...",
