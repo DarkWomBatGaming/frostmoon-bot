@@ -26,14 +26,20 @@ if (!fs.existsSync("./data/used_igns.json")) {
 async function setupVerification(client) {
   const channel = await client.channels.fetch(config.CHANNEL_ID);
 
-  let lock = {};
-  if (fs.existsSync(LOCK_FILE)) {
-    lock = JSON.parse(fs.readFileSync(LOCK_FILE));
+  console.log("🧹 Cleaning old Frostmoon UI...");
+
+  /* ================= DELETE OLD BOT MESSAGES ================= */
+  const messages = await channel.messages.fetch({ limit: 100 });
+
+  const botMessages = messages.filter(m => m.author.id === client.user.id);
+
+  for (const msg of botMessages.values()) {
+    await msg.delete().catch(() => {});
   }
 
-  if (lock.created) return;
+  console.log("✅ Old UI cleared.");
 
-  /* ===== PANEL 1: HEADER ===== */
+  /* ================= PANEL 1 ================= */
   await channel.send({
     embeds: [
       new EmbedBuilder()
@@ -44,6 +50,49 @@ async function setupVerification(client) {
         )
     ]
   });
+
+  /* ================= PANEL 2 (ROSTER) ================= */
+  const rosterMsg = await channel.send({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0x132f4c)
+        .setTitle("📊 LIVE ROSTER")
+        .setDescription("Initializing...")
+    ]
+  });
+
+  /* ================= PANEL 3 (VERIFY) ================= */
+  const verifyMsg = await channel.send({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0x1f4e79)
+        .setTitle("🧬 IDENTITY VERIFICATION CONSOLE")
+        .setDescription(
+          "```diff\n+ AWAITING TRAVELER AUTHORIZATION\n+ READY FOR INPUT\n```"
+        )
+        .setFooter({ text: "Frostmoon Security Layer v4.0" })
+    ],
+    components: [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("start")
+          .setLabel("▶ INITIATE SCAN")
+          .setStyle(ButtonStyle.Success)
+      )
+    ]
+  });
+
+  /* ================= SAVE IDS ================= */
+  fs.writeFileSync(
+    "./data/ui_lock.json",
+    JSON.stringify({
+      rosterId: rosterMsg.id,
+      verifyId: verifyMsg.id
+    }, null, 2)
+  );
+
+  console.log("❄️ Frostmoon UI rebuilt cleanly.");
+}
 
   /* ===== PANEL 2: ROSTER ===== */
   await channel.send({
