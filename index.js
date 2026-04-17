@@ -55,24 +55,40 @@ function saveData() {
 client.once("ready", async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
-  const channel = await client.channels.fetch("1494055445596209172");
+  const channel = await client.channels.fetch("YOUR_CHANNEL_ID");
 
   const embed = new EmbedBuilder()
-    .setColor(0x7c4dff)
-    .setTitle("🔐 Khanrians Verification System")
+    .setColor(0x00ffcc)
+    .setTitle("🧬 KHANRIANS ACCESS TERMINAL")
     .setDescription(
-      "Click the button below to verify your IGN.\n\n" +
-      "✔ Instant role upgrade\n✔ Secure system\n✔ Anti-fake protection"
-    );
+      "```SYSTEM BOOT SEQUENCE INITIATED...\n" +
+      "LOADING VERIFICATION MODULE...\n" +
+      "SCANNING USER DATABASE...\n" +
+      "READY FOR AUTHENTICATION```"
+    )
+    .addFields(
+      { name: "⚡ STATUS", value: "ONLINE & SECURE", inline: true },
+      { name: "🛡 SECURITY", value: "ANTI-FAKE ACTIVE", inline: true },
+      { name: "📡 NETWORK", value: "STABLE CONNECTION", inline: true }
+    )
+    .setFooter({ text: "Khanrians Verification System • Secure Gateway v3.0" });
 
   const button = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId("open_verify")
-      .setLabel("Verify Now")
-      .setEmoji("⚡")
-      .setStyle(ButtonStyle.Success)
+      .setLabel("▶ INITIATE VERIFICATION")
+      .setEmoji("🚀")
+      .setStyle(ButtonStyle.Primary)
   );
 
+  // keep single message system
+  const channelMsg = await channel.send({
+    embeds: [embed],
+    components: [button]
+  });
+
+  console.log("Verification panel deployed");
+});
   // ================= NO DUPLICATES LOGIC =================
   if (data.verifyMessageId) {
     try {
@@ -117,54 +133,61 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 
   // ================= MODAL =================
-  if (interaction.isModalSubmit() && interaction.customId === "verify_modal") {
+ if (interaction.isModalSubmit() && interaction.customId === "verify_modal") {
 
-    const ign = interaction.fields.getTextInputValue("ign").toLowerCase();
-    const userId = interaction.user.id;
+  const ign = interaction.fields.getTextInputValue("ign").toLowerCase();
+  const userId = interaction.user.id;
 
-    // anti spam cooldown
-    if (cooldown.has(userId)) {
-      return interaction.reply({ content: "⏳ Wait before retrying", ephemeral: true });
+  if (cooldown.has(userId)) {
+    return interaction.reply({
+      content: "⏳ SYSTEM COOLING DOWN... TRY AGAIN SHORTLY",
+      ephemeral: true
+    });
+  }
+
+  cooldown.set(userId, Date.now() + 10000);
+
+  await interaction.reply({
+    content: "🧬 INITIALIZING AUTH MODULE...",
+    ephemeral: true
+  });
+
+  setTimeout(() => {
+    interaction.editReply("🔍 SCANNING DATABASE...");
+  }, 1200);
+
+  setTimeout(() => {
+    interaction.editReply("🧠 MATCHING BIOMETRIC IGN...");
+  }, 2500);
+
+  setTimeout(async () => {
+
+    if (!igns.includes(ign)) {
+      return interaction.editReply("❌ ACCESS DENIED: USER NOT FOUND");
     }
-    cooldown.set(userId, Date.now() + 10000);
 
-    // animated flow
-    await interaction.reply({ content: "🔍 Checking system...", ephemeral: true });
-    setTimeout(() => interaction.editReply("🧠 Matching IGN..."), 1000);
-    setTimeout(() => interaction.editReply("🔐 Verifying identity..."), 2500);
+    try {
+      const member = await interaction.guild.members.fetch(userId);
 
-    setTimeout(async () => {
+      await member.roles.remove(WANDERERS).catch(() => {});
+      await member.roles.add(KHANRIANS).catch(() => {});
 
-      if (verifiedUsers.has(userId)) {
-        return interaction.editReply("⚠️ Already verified");
-      }
-
-      if (!igns.includes(ign)) {
-        return interaction.editReply("❌ IGN not found");
-      }
-
-      try {
-        const member = await interaction.guild.members.fetch(userId);
-
-        await member.roles.remove(WANDERERS).catch(() => {});
-        await member.roles.add(KHANRIANS).catch(() => {});
-
-        verifiedUsers.add(userId);
-
-        interaction.editReply("🎉 Verified!");
+      interaction.editReply("✅ ACCESS GRANTED");
+      
+      setTimeout(() => {
         interaction.followUp({
-          content: "🏆 Welcome to Khanrians!",
+          content: "🎉 WELCOME TO KHANRIANS — YOU ARE NOW VERIFIED",
           ephemeral: true
         });
+      }, 1200);
 
-      } catch (err) {
-        console.error(err);
-        interaction.editReply("⚠️ Role update failed");
-      }
+    } catch (err) {
+      console.log(err);
+      interaction.editReply("⚠️ SYSTEM ERROR");
+    }
 
-    }, 3500);
-  }
-});
+  }, 3500);
+}
 
 // ================= LOGIN =================
 client.login(process.env.TOKEN);
