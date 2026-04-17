@@ -1,56 +1,54 @@
-const { 
-  Client, GatewayIntentBits, 
-  ActionRowBuilder, ButtonBuilder, ButtonStyle,
-  ModalBuilder, TextInputBuilder, TextInputStyle,
-  Events
+const {
+  Client,
+  GatewayIntentBits,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  Events,
+  EmbedBuilder
 } = require('discord.js');
 
 const express = require('express');
 const fs = require('fs');
-
-// ===== EXPRESS (Render keep-alive) =====
+const verifiedUsers = new Set();
+const cooldown = new Map();
 const app = express();
 app.get('/', (req, res) => res.send('Bot alive'));
-const PORT = process.env.PORT || 3000;
-app.listen(PORT);
 
-// ===== BOT =====
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log("Server running"));
+const igns = JSON.parse(fs.readFileSync('./igns.json', 'utf8'))
+  .map(n => n.toLowerCase());
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
-
-// ===== ROLE IDS =====
 const WANDERERS = "1494032348067659949";
 const KHANRIANS = "1493696754141626540";
-
-// ===== IGN DATABASE =====
-const igns = JSON.parse(fs.readFileSync('./igns.json', 'utf8'))
-  .map(n => n.toLowerCase());
-
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
-  // Send verify button to a channel (CHANGE CHANNEL ID)
   const channel = await client.channels.fetch("1494055445596209172");
+
+  const embed = new EmbedBuilder()
+    .setColor(0x7c4dff)
+    .setTitle("🔐 Verification System")
+    .setDescription("Click below to verify your IGN");
 
   const button = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('open_verify')
-      .setLabel('Verify IGN')
+      .setLabel('Verify Now')
+      .setEmoji('⚡')
       .setStyle(ButtonStyle.Success)
   );
 
-  channel.send({
-    content: "Click below to verify your IGN:",
-    components: [button]
-  });
+  channel.send({ embeds: [embed], components: [button] });
 });
-
-// ===== BUTTON CLICK =====
 client.on(Events.InteractionCreate, async interaction => {
-
-  // OPEN MODAL
-  if (interaction.isButton() && interaction.customId === 'open_verify') {
+    if (interaction.isButton() && interaction.customId === 'open_verify') {
 
     const modal = new ModalBuilder()
       .setCustomId('verify_modal')
@@ -58,7 +56,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
     const ignInput = new TextInputBuilder()
       .setCustomId('ign')
-      .setLabel('Enter your In-Game Name')
+      .setLabel('Enter IGN')
       .setStyle(TextInputStyle.Short)
       .setRequired(true);
 
@@ -68,38 +66,43 @@ client.on(Events.InteractionCreate, async interaction => {
 
     return interaction.showModal(modal);
   }
-
-  // HANDLE MODAL SUBMIT
-  if (interaction.isModalSubmit() && interaction.customId === 'verify_modal') {
+    if (interaction.isModalSubmit() && interaction.customId === 'verify_modal') {
 
     const ign = interaction.fields.getTextInputValue('ign').toLowerCase();
+    const userId = interaction.user.id;
 
-    if (!igns.includes(ign)) {
-      return interaction.reply({
-        content: "❌ IGN not found in team list.",
-        ephemeral: true
-      });
+    // cooldown
+    if (cooldown.has(userId)) {
+      return interaction.reply({ content: "⏳ Wait before retrying", ephemeral: true });
     }
+    cooldown.set(userId, Date.now() + 10000);
 
-    try {
-      const member = interaction.member;
+    await interaction.reply({ content: "🔍 Checking...", ephemeral: true });
 
-      await member.roles.remove(WANDERERS);
-      await member.roles.add(KHANRIANS);
+    setTimeout(() => interaction.editReply("🧠 Matching IGN..."), 1000);
+    setTimeout(() => interaction.editReply("🔐 Verifying..."), 2500);
 
-      return interaction.reply({
-        content: "✅ Verified successfully! Roles updated.",
-        ephemeral: true
-      });
+    setTimeout(async () => {
 
-    } catch (err) {
-      console.error(err);
-      return interaction.reply({
-        content: "⚠️ Error updating roles.",
-        ephemeral: true
-      });
-    }
+      if (verifiedUsers.has(userId)) {
+        return interaction.editReply("⚠️ Already verified");
+      }
+
+      if (!igns.includes(ign)) {
+        return interaction.editReply("❌ IGN not found");
+      }
+
+      const member = await interaction.guild.members.fetch(userId);
+
+      await member.roles.remove(WANDERERS).catch(() => {});
+      await member.roles.add(KHANRIANS).catch(() => {});
+
+      verifiedUsers.add(userId);
+
+      interaction.editReply("🎉 Verified!");
+      interaction.followUp({ content: "🏆 You are now Khanrian!", ephemeral: true });
+
+    }, 3500);
   }
 });
-
 client.login(process.env.TOKEN);
