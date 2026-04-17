@@ -60,9 +60,7 @@ client.once("ready", async () => {
   const embed = new EmbedBuilder()
     .setColor(0x00ffcc)
     .setTitle("🧬 KHANRIANS ACCESS TERMINAL")
-    .setDescription(
-      "```SYSTEM BOOT SEQUENCE INITIATED...\nLOADING VERIFICATION MODULE...\nREADY FOR AUTH```"
-    );
+    .setDescription("```SYSTEM BOOT SEQUENCE INITIATED...\nLOADING VERIFICATION MODULE...\nREADY FOR AUTH```");
 
   const button = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -72,18 +70,20 @@ client.once("ready", async () => {
       .setStyle(ButtonStyle.Primary)
   );
 
-  // ✅ NO DUPLICATES LOGIC
-  if (data.verifyMessageId) {
-    try {
+  try {
+    if (data.verifyMessageId) {
       const msg = await channel.messages.fetch(data.verifyMessageId);
+
       await msg.edit({
         embeds: [embed],
         components: [button]
       });
+
+      console.log("Updated existing verification panel");
       return;
-    } catch (err) {
-      console.log("Message not found, creating new one...");
     }
+  } catch (err) {
+    console.log("Old message not found, creating new one");
   }
 
   const newMsg = await channel.send({
@@ -91,6 +91,9 @@ client.once("ready", async () => {
     components: [button]
   });
 
+  data.verifyMessageId = newMsg.id;
+  saveData();
+});
   data.verifyMessageId = newMsg.id;
   saveData();
 });
