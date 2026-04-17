@@ -119,61 +119,57 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 
   // ================= MODAL =================
- if (interaction.isModalSubmit() && interaction.customId === "verify_modal") {
+  if (interaction.isModalSubmit() && interaction.customId === "verify_modal") {
 
-  const ign = interaction.fields.getTextInputValue("ign").toLowerCase();
-  const userId = interaction.user.id;
+    const ign = interaction.fields.getTextInputValue("ign").toLowerCase();
+    const userId = interaction.user.id;
 
-  if (cooldown.has(userId)) {
-    return interaction.reply({
-      content: "⏳ SYSTEM COOLING DOWN... TRY AGAIN SHORTLY",
+    if (cooldown.has(userId)) {
+      return interaction.reply({
+        content: "⏳ SYSTEM COOLING DOWN... TRY AGAIN SHORTLY",
+        ephemeral: true
+      });
+    }
+
+    cooldown.set(userId, Date.now() + 10000);
+
+    await interaction.reply({
+      content: "🧬 INITIALIZING AUTH MODULE...",
       ephemeral: true
     });
+
+    setTimeout(() => interaction.editReply("🔍 SCANNING DATABASE..."), 1200);
+    setTimeout(() => interaction.editReply("🧠 MATCHING BIOMETRIC IGN..."), 2500);
+
+    setTimeout(async () => {
+
+      if (!igns.includes(ign)) {
+        return interaction.editReply("❌ ACCESS DENIED: USER NOT FOUND");
+      }
+
+      try {
+        const member = await interaction.guild.members.fetch(userId);
+
+        await member.roles.remove(WANDERERS).catch(() => {});
+        await member.roles.add(KHANRIANS).catch(() => {});
+
+        interaction.editReply("✅ ACCESS GRANTED");
+
+        setTimeout(() => {
+          interaction.followUp({
+            content: "🎉 WELCOME TO KHANRIANS — YOU ARE NOW VERIFIED",
+            ephemeral: true
+          });
+        }, 1200);
+
+      } catch (err) {
+        console.log(err);
+        interaction.editReply("⚠️ SYSTEM ERROR");
+      }
+
+    }, 3500);
   }
-
-  cooldown.set(userId, Date.now() + 10000);
-
-  await interaction.reply({
-    content: "🧬 INITIALIZING AUTH MODULE...",
-    ephemeral: true
-  });
-
-  setTimeout(() => {
-    interaction.editReply("🔍 SCANNING DATABASE...");
-  }, 1200);
-
-  setTimeout(() => {
-    interaction.editReply("🧠 MATCHING BIOMETRIC IGN...");
-  }, 2500);
-
-  setTimeout(async () => {
-
-    if (!igns.includes(ign)) {
-      return interaction.editReply("❌ ACCESS DENIED: USER NOT FOUND");
-    }
-
-    try {
-      const member = await interaction.guild.members.fetch(userId);
-
-      await member.roles.remove(WANDERERS).catch(() => {});
-      await member.roles.add(KHANRIANS).catch(() => {});
-
-      interaction.editReply("✅ ACCESS GRANTED");
-      
-      setTimeout(() => {
-        interaction.followUp({
-          content: "🎉 WELCOME TO KHANRIANS — YOU ARE NOW VERIFIED",
-          ephemeral: true
-        });
-      }, 1200);
-
-    } catch (err) {
-      console.log(err);
-      interaction.editReply("⚠️ SYSTEM ERROR");
-    }
-
-  }, 3500);
-}
+});
 
 // ================= LOGIN =================
 client.login(process.env.TOKEN);
