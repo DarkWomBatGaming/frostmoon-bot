@@ -1,4 +1,3 @@
-const { updateRoster } = require("./rosterService");
 const fs = require("fs");
 const {
   EmbedBuilder,
@@ -9,6 +8,9 @@ const {
   TextInputBuilder,
   TextInputStyle
 } = require("discord.js");
+
+const CHANNEL_ID = "1494055445596209172";
+const LOCK_FILE = "./data/ui_lock.json";
 
 /* IDS */
 const GUILD_ID = "1493669690088882187";
@@ -23,16 +25,29 @@ let USED_IGNS = fs.existsSync("./data/used_igns.json")
   ? JSON.parse(fs.readFileSync("./data/used_igns.json"))
   : [];
 
-/* ================= SETUP UI ================= */
+/* ================= SETUP UI (NO DUPLICATES) ================= */
 async function setupVerification(client) {
   const channel = await client.channels.fetch(CHANNEL_ID);
 
-  await channel.send({
+  let lock = {};
+  if (fs.existsSync(LOCK_FILE)) {
+    lock = JSON.parse(fs.readFileSync(LOCK_FILE, "utf8"));
+  }
+
+  // If already created → do nothing
+  if (lock.verificationMessageId) {
+    console.log("❄️ Verification UI already exists. Skipping.");
+    return;
+  }
+
+  const msg = await channel.send({
     embeds: [
       new EmbedBuilder()
         .setColor(0x9fe7ff)
         .setTitle("❄️ FROSTMOON TERMINAL")
-        .setDescription("Click below to begin awakening process.")
+        .setDescription(
+          "```INITIALIZING CRYO GATE...\nAWAITING TRAVELER AUTHORIZATION...```"
+        )
     ],
     components: [
       new ActionRowBuilder().addComponents(
@@ -43,6 +58,13 @@ async function setupVerification(client) {
       )
     ]
   });
+
+  fs.writeFileSync(
+    LOCK_FILE,
+    JSON.stringify({ verificationMessageId: msg.id }, null, 2)
+  );
+
+  console.log("❄️ Verification UI created once and locked.");
 }
 
 /* ================= INTERACTIONS ================= */
