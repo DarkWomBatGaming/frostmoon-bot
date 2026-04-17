@@ -95,12 +95,13 @@ client.once("ready", async () => {
   saveData();
   });
   
+// ... (Your imports and express setup remain the same)
+
 // ================= INTERACTIONS =================
 client.on(Events.InteractionCreate, async interaction => {
 
   // ================= BUTTON =================
   if (interaction.isButton() && interaction.customId === "open_verify") {
-
     const modal = new ModalBuilder()
       .setCustomId("verify_modal")
       .setTitle("IGN Verification");
@@ -108,75 +109,61 @@ client.on(Events.InteractionCreate, async interaction => {
     const input = new TextInputBuilder()
       .setCustomId("ign")
       .setLabel("Enter your IGN")
+      .setPlaceholder("Type your in-game name here...")
       .setStyle(TextInputStyle.Short)
       .setRequired(true);
 
-    modal.addComponents(
-      new ActionRowBuilder().addComponents(input)
-    );
-
+    modal.addComponents(new ActionRowBuilder().addComponents(input));
     return interaction.showModal(modal);
   }
 
   // ================= MODAL =================
   if (interaction.isModalSubmit() && interaction.customId === "verify_modal") {
-
     const ign = interaction.fields.getTextInputValue("ign").toLowerCase();
     const userId = interaction.user.id;
 
-   if (cooldown.has(userId)) {
-  const expireTime = cooldown.get(userId);
+    // Cooldown Check
+    if (cooldown.has(userId) && Date.now() < cooldown.get(userId)) {
+      return interaction.reply({
+        content: "⏳ **SYSTEM COOLING DOWN...** Please wait a few seconds.",
+        ephemeral: true
+      });
+    }
+    cooldown.set(userId, Date.now() + 10000);
 
-  if (Date.now() < expireTime) {
-    return interaction.reply({
-      content: "⏳ SYSTEM COOLING DOWN... TRY AGAIN SHORTLY",
-      ephemeral: true
-    });
-  }
+    // Use deferReply because the sequence takes > 3 seconds
+    await interaction.deferReply({ ephemeral: true });
+    await interaction.editReply("🧬 **INITIALIZING AUTH MODULE...**");
 
-  // expired → remove it
-  cooldown.delete(userId);
-}
-
-   cooldown.set(userId, Date.now() + 10000); // 10 seconds
-
-    await interaction.reply({
-      content: "🧬 INITIALIZING AUTH MODULE...",
-      ephemeral: true
-    });
-
-    setTimeout(() => interaction.editReply("🔍 SCANNING DATABASE..."), 1200);
-    setTimeout(() => interaction.editReply("🧠 MATCHING BIOMETRIC IGN..."), 2500);
+    // "Fake" loading sequence for aesthetic
+    setTimeout(() => interaction.editReply("🔍 **SCANNING DATABASE...**"), 1200);
+    setTimeout(() => interaction.editReply("🧠 **MATCHING BIOMETRIC IGN...**"), 2500);
 
     setTimeout(async () => {
-
       if (!igns.includes(ign)) {
-        return interaction.editReply("❌ ACCESS DENIED: USER NOT FOUND");
+        return interaction.editReply("❌ **ACCESS DENIED:** User not found in database.");
       }
 
       try {
         const member = await interaction.guild.members.fetch(userId);
 
-        await member.roles.remove(WANDERERS).catch(() => {});
-        await member.roles.add(KHANRIANS).catch(() => {});
+        // Check if already verified
+        if (member.roles.cache.has(KHANRIANS)) {
+          return interaction.editReply("🛡️ **SYSTEM NOTE:** Biometrics already confirmed. You are already verified.");
+        }
 
-        interaction.editReply("✅ ACCESS GRANTED");
+        // Role swap
+        await member.roles.remove(WANDERERS).catch(() => console.log("Wanderer role not found on user."));
+        await member.roles.add(KHANRIANS);
 
-        setTimeout(() => {
-          interaction.followUp({
-            content: "🎉 WELCOME TO KHANRIANS — YOU ARE NOW VERIFIED",
-            ephemeral: true
-          });
-        }, 1200);
-
+        await interaction.editReply("✅ **ACCESS GRANTED.** Welcome to the Khanrians.");
+        
       } catch (err) {
-        console.log(err);
-        interaction.editReply("⚠️ SYSTEM ERROR");
+        console.error(err);
+        interaction.editReply("⚠️ **SYSTEM ERROR:** Could not update roles. Contact an admin.");
       }
-
     }, 3500);
   }
 });
 
-// ================= LOGIN =================
 client.login(process.env.TOKEN);
