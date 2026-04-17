@@ -42,19 +42,21 @@ async function setupVerification(client) {
 
   const msg = await channel.send({
     embeds: [
-      new EmbedBuilder()
-        .setColor(0x9fe7ff)
-        .setTitle("❄️ FROSTMOON TERMINAL")
-        .setDescription(
-          "```INITIALIZING CRYO GATE...\nAWAITING TRAVELER AUTHORIZATION...```"
-        )
+     new EmbedBuilder()
+  .setColor(0x9fe7ff)
+  .setTitle("❄️ Frostmoon Identity Matrix")
+  .setDescription(
+    "```diff\n- CRYO CORE ONLINE\n- SECURITY LAYER ACTIVE\n- AWAITING TRAVELER INPUT\n```\n" +
+    "Press below to initiate identity scan."
+  )
+  .setFooter({ text: "Frostmoon Protocol v2.4" })
     ],
     components: [
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId("fm_start")
-          .setLabel("Enter Gate")
-          .setStyle(ButtonStyle.Primary)
+  .setCustomId("fm_start")
+  .setLabel("▶ INITIATE CRYO SCAN")
+  .setStyle(ButtonStyle.Success)
       )
     ]
   });
