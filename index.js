@@ -49,7 +49,7 @@ for (const file of commandFiles) {
 }
 
 /* ================= READY ================= */
-client.once("ready", async () => {
+client.once("clientReady", async () => {
   console.log(`❄️ Logged in as ${client.user.tag}`);
 
   const guild = client.guilds.cache.get(GUILD_ID);
