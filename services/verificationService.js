@@ -28,9 +28,7 @@ async function setupVerification(client) {
 
   console.log("🧹 Cleaning old Frostmoon UI...");
 
-  /* ================= DELETE OLD BOT MESSAGES ================= */
   const messages = await channel.messages.fetch({ limit: 100 });
-
   const botMessages = messages.filter(m => m.author.id === client.user.id);
 
   for (const msg of botMessages.values()) {
@@ -39,7 +37,7 @@ async function setupVerification(client) {
 
   console.log("✅ Old UI cleared.");
 
-  /* ================= PANEL 1 ================= */
+  /* PANEL 1 */
   await channel.send({
     embeds: [
       new EmbedBuilder()
@@ -51,7 +49,7 @@ async function setupVerification(client) {
     ]
   });
 
-  /* ================= PANEL 2 (ROSTER) ================= */
+  /* PANEL 2 */
   const rosterMsg = await channel.send({
     embeds: [
       new EmbedBuilder()
@@ -61,7 +59,7 @@ async function setupVerification(client) {
     ]
   });
 
-  /* ================= PANEL 3 (VERIFY) ================= */
+  /* PANEL 3 */
   const verifyMsg = await channel.send({
     embeds: [
       new EmbedBuilder()
@@ -70,7 +68,6 @@ async function setupVerification(client) {
         .setDescription(
           "```diff\n+ AWAITING TRAVELER AUTHORIZATION\n+ READY FOR INPUT\n```"
         )
-        .setFooter({ text: "Frostmoon Security Layer v4.0" })
     ],
     components: [
       new ActionRowBuilder().addComponents(
@@ -81,6 +78,17 @@ async function setupVerification(client) {
       )
     ]
   });
+
+  fs.writeFileSync(
+    "./data/ui_lock.json",
+    JSON.stringify({
+      rosterId: rosterMsg.id,
+      verifyId: verifyMsg.id
+    }, null, 2)
+  );
+
+  console.log("❄️ Frostmoon UI rebuilt cleanly.");
+}
 
   /* ================= SAVE IDS ================= */
   fs.writeFileSync(
