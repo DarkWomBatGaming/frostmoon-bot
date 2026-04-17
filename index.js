@@ -57,48 +57,45 @@ client.once("ready", async () => {
 
   const channel = await client.channels.fetch("YOUR_CHANNEL_ID");
 
-  // ✅ THIS is allowed because we're inside async function
+  const embed = new EmbedBuilder()
+    .setColor(0x00ffcc)
+    .setTitle("🧬 KHANRIANS ACCESS TERMINAL")
+    .setDescription(
+      "```SYSTEM BOOT SEQUENCE INITIATED...\nLOADING VERIFICATION MODULE...\nREADY FOR AUTH```"
+    );
+
+  const button = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("open_verify")
+      .setLabel("▶ VERIFY NOW")
+      .setEmoji("🚀")
+      .setStyle(ButtonStyle.Primary)
+  );
+
+  // ✅ NO DUPLICATES LOGIC
   if (data.verifyMessageId) {
     try {
       const msg = await channel.messages.fetch(data.verifyMessageId);
       await msg.edit({
-        embeds: [yourEmbed],
-        components: [yourButton]
+        embeds: [embed],
+        components: [button]
       });
       return;
     } catch (err) {
-      console.log("Old message not found, creating new one...");
+      console.log("Message not found, creating new one...");
     }
   }
 
   const newMsg = await channel.send({
-    embeds: [yourEmbed],
-    components: [yourButton]
+    embeds: [embed],
+    components: [button]
   });
 
   data.verifyMessageId = newMsg.id;
   saveData();
 });
-  // ================= NO DUPLICATES LOGIC =================
-  if (data.verifyMessageId) {
-    try {
-      const msg = await channel.messages.fetch(data.verifyMessageId);
-      await msg.edit({ embeds: [embed], components: [button] });
-      return;
-    } catch (err) {
-      console.log("Recreating verification panel...");
-    }
-  }
-
-  const msg = await channel.send({
-    embeds: [embed],
-    components: [button]
-  });
-
-  data.verifyMessageId = msg.id;
-  saveData();
 });
-
+  
 // ================= INTERACTIONS =================
 client.on(Events.InteractionCreate, async interaction => {
 
