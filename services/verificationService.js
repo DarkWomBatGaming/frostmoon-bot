@@ -9,128 +9,140 @@ const {
   TextInputStyle
 } = require("discord.js");
 
-const CHANNEL_ID = "1494055445596209172";
+const config = require("../config");
+const { updateRoster } = require("./rosterService");
+
+const ALLOWED_IGNS = JSON.parse(fs.readFileSync("./data/igns.json"))
+  .map(i => i.toLowerCase());
+
 const LOCK_FILE = "./data/ui_lock.json";
 
-/* IDS */
-const GUILD_ID = "1493669690088882187";
-const CHANNEL_ID = "1494055445596209172";
+/* SAFE FILE INIT */
+if (!fs.existsSync("./data/used_igns.json")) {
+  fs.writeFileSync("./data/used_igns.json", "[]");
+}
 
-const ROLE_WANDERER = "1494032348067659949";
-const ROLE_KHANRIAN = "1493696754141626540";
-
-/* DATA */
-const ALLOWED_IGNS = JSON.parse(fs.readFileSync("./data/igns.json"));
-let USED_IGNS = fs.existsSync("./data/used_igns.json")
-  ? JSON.parse(fs.readFileSync("./data/used_igns.json"))
-  : [];
-
-/* ================= SETUP UI (NO DUPLICATES) ================= */
+/* ================= UI SETUP ================= */
 async function setupVerification(client) {
-  const channel = await client.channels.fetch(CHANNEL_ID);
+  const channel = await client.channels.fetch(config.CHANNEL_ID);
 
   let lock = {};
   if (fs.existsSync(LOCK_FILE)) {
-    lock = JSON.parse(fs.readFileSync(LOCK_FILE, "utf8"));
+    lock = JSON.parse(fs.readFileSync(LOCK_FILE));
   }
 
-  // If already created → do nothing
-  if (lock.verificationMessageId) {
-    console.log("❄️ Verification UI already exists. Skipping.");
+  if (lock.messageId) {
+    console.log("UI already exists");
     return;
   }
 
   const msg = await channel.send({
     embeds: [
-     new EmbedBuilder()
-  .setColor(0x9fe7ff)
-  .setTitle("❄️ Frostmoon Identity Matrix")
-  .setDescription(
-    "```diff\n- CRYO CORE ONLINE\n- SECURITY LAYER ACTIVE\n- AWAITING TRAVELER INPUT\n```\n" +
-    "Press below to initiate identity scan."
-  )
-  .setFooter({ text: "Frostmoon Protocol v2.4" })
+      new EmbedBuilder()
+        .setColor(0x9fe7ff)
+        .setTitle("❄️ FROSTMOON ACCESS TERMINAL")
+        .setDescription(
+          "```diff\n+ CRYO CORE ONLINE\n+ SECURITY ACTIVE\n+ READY FOR SCAN\n```"
+        )
     ],
     components: [
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-  .setCustomId("fm_start")
-  .setLabel("▶ INITIATE CRYO SCAN")
-  .setStyle(ButtonStyle.Success)
+          .setCustomId("start")
+          .setLabel("▶ Initiate Scan")
+          .setStyle(ButtonStyle.Success)
       )
     ]
   });
 
-  fs.writeFileSync(
-    LOCK_FILE,
-    JSON.stringify({ verificationMessageId: msg.id }, null, 2)
-  );
-
-  console.log("❄️ Verification UI created once and locked.");
+  fs.writeFileSync(LOCK_FILE, JSON.stringify({ messageId: msg.id }, null, 2));
 }
 
-/* ================= INTERACTIONS ================= */
-async function handleInteraction(interaction, client) {
+/* ================= HANDLER ================= */
+async function handleInteraction(interaction) {
 
   /* BUTTON */
-  if (interaction.isButton() && interaction.customId === "fm_start") {
-    const modal = new ModalBuilder()
-      .setCustomId("fm_modal")
-      .setTitle("Frostmoon Scan");
+  if (interaction.isButton() && interaction.customId === "start") {
 
-    const ign = new TextInputBuilder()
+    const modal = new ModalBuilder()
+      .setCustomId("ign_modal")
+      .setTitle("Frostmoon Identity Scan");
+
+    const input = new TextInputBuilder()
       .setCustomId("ign")
       .setLabel("Enter IGN")
-      .setStyle(TextInputStyle.Short);
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true);
 
-    modal.addComponents(new ActionRowBuilder().addComponents(ign));
+    modal.addComponents(new ActionRowBuilder().addComponents(input));
 
     return interaction.showModal(modal);
   }
 
   /* MODAL */
-  if (interaction.isModalSubmit() && interaction.customId === "fm_modal") {
+  if (interaction.isModalSubmit() && interaction.customId === "ign_modal") {
 
     const ign = interaction.fields.getTextInputValue("ign").toLowerCase();
     const member = await interaction.guild.members.fetch(interaction.user.id);
 
     await interaction.deferReply({ ephemeral: true });
 
-    if (!ALLOWED_IGNS.includes(ign))
-      return interaction.editReply("🚫 Invalid IGN");
+    if (member.roles.cache.has(config.ROLE_KHANRIAN)) {
+      return interaction.editReply("❄️ Already verified.");
+    }
 
-    if (USED_IGNS.find(u => u.ign === ign))
-      return interaction.editReply("🔒 Already used");
+    const used = JSON.parse(fs.readFileSync("./data/used_igns.json"));
 
+    if (!ALLOWED_IGNS.includes(ign)) {
+      return interaction.editReply("🚫 Invalid IGN.");
+    }
+
+    if (used.find(u => u.ign === ign)) {
+      return interaction.editReply("🔒 IGN already used.");
+    }
+
+    /* CONFIRM */
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(`fm_confirm_${ign}`)
+        .setCustomId(`confirm_${ign}`)
         .setLabel("Confirm")
-        .setStyle(ButtonStyle.Success)
+        .setStyle(ButtonStyle.Primary)
     );
 
     return interaction.editReply({
-      content: "Confirm identity",
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x9fe7ff)
+          .setTitle("Confirm Identity")
+          .setDescription(`IGN: **${ign}**`)
+      ],
       components: [row]
     });
   }
 
   /* CONFIRM */
-  if (interaction.isButton() && interaction.customId.startsWith("fm_confirm_")) {
+  if (interaction.isButton() && interaction.customId.startsWith("confirm_")) {
 
-    const ign = interaction.customId.replace("fm_confirm_", "");
+    const ign = interaction.customId.replace("confirm_", "");
     const member = await interaction.guild.members.fetch(interaction.user.id);
 
-    await member.roles.add(ROLE_KHANRIAN);
-    await member.roles.remove(ROLE_WANDERER);
-    /* UPDATE ROSTER */
+    if (member.roles.cache.has(config.ROLE_KHANRIAN)) {
+      return interaction.reply({ content: "Already verified", ephemeral: true });
+    }
+
+    await member.roles.add(config.ROLE_KHANRIAN);
+    await member.roles.remove(config.ROLE_WANDERER);
+
+    const used = JSON.parse(fs.readFileSync("./data/used_igns.json"));
+    used.push({ ign, userId: member.id });
+
+    fs.writeFileSync("./data/used_igns.json", JSON.stringify(used, null, 2));
+
     await updateRoster(interaction.guild);
 
-    USED_IGNS.push({ ign, userId: member.id });
-    fs.writeFileSync("./data/used_igns.json", JSON.stringify(USED_IGNS, null, 2));
-
     return interaction.update({
-      content: "❄️ Verified",
+      content: "❄️ Verification successful.",
+      embeds: [],
       components: []
     });
   }
