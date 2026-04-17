@@ -7,80 +7,131 @@ const {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  Events,
-  EmbedBuilder
-} = require('discord.js');
+  EmbedBuilder,
+  Events
+} = require("discord.js");
 
-const express = require('express');
-const fs = require('fs');
+const express = require("express");
+const fs = require("fs");
+
+// ================= EXPRESS (Render keep alive) =================
+const app = express();
+app.get("/", (req, res) => res.send("Bot Alive"));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT);
+
+// ================= DATA FILE =================
+const DATA_FILE = "./data.json";
+
+let data = { verifyMessageId: null };
+
+if (fs.existsSync(DATA_FILE)) {
+  data = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+}
+
+// ================= IGN DATABASE =================
+const igns = JSON.parse(fs.readFileSync("./igns.json", "utf8"))
+  .map(n => n.toLowerCase());
+
+// ================= SYSTEM MEMORY =================
 const verifiedUsers = new Set();
 const cooldown = new Map();
-const app = express();
-app.get('/', (req, res) => res.send('Bot alive'));
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("Server running"));
-const igns = JSON.parse(fs.readFileSync('./igns.json', 'utf8'))
-  .map(n => n.toLowerCase());
+// ================= ROLE IDS =================
+const WANDERERS = "1494032348067659949";
+const KHANRIANS = "1493696754141626540";
+
+// ================= CLIENT =================
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
-const WANDERERS = "1494032348067659949";
-const KHANRIANS = "1493696754141626540";
-client.once('ready', async () => {
+
+// ================= SAVE =================
+function saveData() {
+  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+}
+
+// ================= READY EVENT =================
+client.once("ready", async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
   const channel = await client.channels.fetch("1494055445596209172");
 
   const embed = new EmbedBuilder()
     .setColor(0x7c4dff)
-    .setTitle("🔐 Verification System")
-    .setDescription("Click below to verify your IGN");
+    .setTitle("🔐 Khanrians Verification System")
+    .setDescription(
+      "Click the button below to verify your IGN.\n\n" +
+      "✔ Instant role upgrade\n✔ Secure system\n✔ Anti-fake protection"
+    );
 
   const button = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId('open_verify')
-      .setLabel('Verify Now')
-      .setEmoji('⚡')
+      .setCustomId("open_verify")
+      .setLabel("Verify Now")
+      .setEmoji("⚡")
       .setStyle(ButtonStyle.Success)
   );
 
-  channel.send({ embeds: [embed], components: [button] });
+  // ================= NO DUPLICATES LOGIC =================
+  if (data.verifyMessageId) {
+    try {
+      const msg = await channel.messages.fetch(data.verifyMessageId);
+      await msg.edit({ embeds: [embed], components: [button] });
+      return;
+    } catch (err) {
+      console.log("Recreating verification panel...");
+    }
+  }
+
+  const msg = await channel.send({
+    embeds: [embed],
+    components: [button]
+  });
+
+  data.verifyMessageId = msg.id;
+  saveData();
 });
+
+// ================= INTERACTIONS =================
 client.on(Events.InteractionCreate, async interaction => {
-    if (interaction.isButton() && interaction.customId === 'open_verify') {
+
+  // ================= BUTTON =================
+  if (interaction.isButton() && interaction.customId === "open_verify") {
 
     const modal = new ModalBuilder()
-      .setCustomId('verify_modal')
-      .setTitle('IGN Verification');
+      .setCustomId("verify_modal")
+      .setTitle("IGN Verification");
 
-    const ignInput = new TextInputBuilder()
-      .setCustomId('ign')
-      .setLabel('Enter IGN')
+    const input = new TextInputBuilder()
+      .setCustomId("ign")
+      .setLabel("Enter your IGN")
       .setStyle(TextInputStyle.Short)
       .setRequired(true);
 
     modal.addComponents(
-      new ActionRowBuilder().addComponents(ignInput)
+      new ActionRowBuilder().addComponents(input)
     );
 
     return interaction.showModal(modal);
   }
-    if (interaction.isModalSubmit() && interaction.customId === 'verify_modal') {
 
-    const ign = interaction.fields.getTextInputValue('ign').toLowerCase();
+  // ================= MODAL =================
+  if (interaction.isModalSubmit() && interaction.customId === "verify_modal") {
+
+    const ign = interaction.fields.getTextInputValue("ign").toLowerCase();
     const userId = interaction.user.id;
 
-    // cooldown
+    // anti spam cooldown
     if (cooldown.has(userId)) {
       return interaction.reply({ content: "⏳ Wait before retrying", ephemeral: true });
     }
     cooldown.set(userId, Date.now() + 10000);
 
-    await interaction.reply({ content: "🔍 Checking...", ephemeral: true });
-
+    // animated flow
+    await interaction.reply({ content: "🔍 Checking system...", ephemeral: true });
     setTimeout(() => interaction.editReply("🧠 Matching IGN..."), 1000);
-    setTimeout(() => interaction.editReply("🔐 Verifying..."), 2500);
+    setTimeout(() => interaction.editReply("🔐 Verifying identity..."), 2500);
 
     setTimeout(async () => {
 
@@ -92,17 +143,28 @@ client.on(Events.InteractionCreate, async interaction => {
         return interaction.editReply("❌ IGN not found");
       }
 
-      const member = await interaction.guild.members.fetch(userId);
+      try {
+        const member = await interaction.guild.members.fetch(userId);
 
-      await member.roles.remove(WANDERERS).catch(() => {});
-      await member.roles.add(KHANRIANS).catch(() => {});
+        await member.roles.remove(WANDERERS).catch(() => {});
+        await member.roles.add(KHANRIANS).catch(() => {});
 
-      verifiedUsers.add(userId);
+        verifiedUsers.add(userId);
 
-      interaction.editReply("🎉 Verified!");
-      interaction.followUp({ content: "🏆 You are now Khanrian!", ephemeral: true });
+        interaction.editReply("🎉 Verified!");
+        interaction.followUp({
+          content: "🏆 Welcome to Khanrians!",
+          ephemeral: true
+        });
+
+      } catch (err) {
+        console.error(err);
+        interaction.editReply("⚠️ Role update failed");
+      }
 
     }, 3500);
   }
 });
+
+// ================= LOGIN =================
 client.login(process.env.TOKEN);
