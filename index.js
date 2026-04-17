@@ -43,60 +43,68 @@ const client = new Client({
 client.once("ready", async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
-   // Register the slash command
-  const guildId = "YOUR_GUILD_ID"; // Put your Server ID here
-  const guild = client.guilds.cache.get(guildId);
+  // 1. Register Slash Commands (Wrapped correctly)
+  const registerCommands = async () => {
+    try {
+      const guildId = "1493669690088882187"; // <--- MAKE SURE THIS IS YOUR ACTUAL SERVER ID
+      const guild = client.guilds.cache.get(guildId);
 
-  if (guild) {
-    await guild.commands.set([
-      {
-        name: 'setcount',
-        description: 'Manually set the total team member count',
-        options: [
+      if (guild) {
+        await guild.commands.set([
           {
-            name: 'number',
-            type: 4, // 4 = Integer
-            description: 'The new total number of members',
-            required: true,
+            name: 'setcount',
+            description: 'Manually set the total team member count',
+            options: [
+              {
+                name: 'number',
+                type: 4, // Integer
+                description: 'The new total number of members',
+                required: true,
+              },
+            ],
           },
-        ],
-      },
-    ]);
-    console.log("Slash commands registered!");
-  }
+        ]);
+        console.log("Slash commands registered successfully!");
+      }
+    } catch (error) {
+      console.error("Error registering commands:", error);
+    }
+  };
 
-  const channel = await client.channels.fetch("1494055445596209172");
-  
-  const embed = new EmbedBuilder()
-    .setColor(0x00ffcc)
-    .setTitle("🧬 KHANRIANS ACCESS TERMINAL")
-    .setDescription("```SYSTEM BOOT SEQUENCE INITIATED...\nLOADING VERIFICATION MODULE...\nREADY FOR AUTH```");
+  await registerCommands();
 
-  const button = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("open_verify")
-      .setLabel("▶ VERIFY NOW")
-      .setEmoji("🚀")
-      .setStyle(ButtonStyle.Primary)
-  );
+  // 2. Handle Terminal Message
+  try {
+    const channel = await client.channels.fetch("1494055445596209172");
+    const messages = await channel.messages.fetch({ limit: 10 });
+    
+    const existingMsg = messages.find(m => 
+      m.author.id === client.user.id && 
+      m.embeds[0]?.data?.title === "🧬 KHANRIANS ACCESS TERMINAL"
+    );
 
-  // 1. Fetch the last few messages in the channel
-  const messages = await channel.messages.fetch({ limit: 10 });
-  
-  // 2. Find if one of them is OUR terminal (sent by the bot with the right title)
-  const existingMsg = messages.find(m => 
-    m.author.id === client.user.id && 
-    m.embeds[0]?.title === "🧬 KHANRIANS ACCESS TERMINAL"
-  );
+    const embed = new EmbedBuilder()
+      .setColor(0x00ffcc)
+      .setTitle("🧬 KHANRIANS ACCESS TERMINAL")
+      .setDescription("```SYSTEM BOOT SEQUENCE INITIATED...\nLOADING VERIFICATION MODULE...\nREADY FOR AUTH```");
 
-  if (existingMsg) {
-    // 3. If it exists, just update it!
-    await existingMsg.edit({ embeds: [embed], components: [button] });
-    console.log("Found existing terminal. System updated.");
-  } else {
-    // 4. If it doesn't exist, send a fresh one
-    await channel.send({ embeds: [embed], components: [button] });
-    console.log("No terminal found. Deployed new instance.");
+    const button = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("open_verify")
+        .setLabel("▶ VERIFY NOW")
+        .setEmoji("🚀")
+        .setStyle(ButtonStyle.Primary)
+    );
+
+    if (existingMsg) {
+      await existingMsg.edit({ embeds: [embed], components: [button] });
+      console.log("Updated existing terminal.");
+    } else {
+      await channel.send({ embeds: [embed], components: [button] });
+      console.log("Sent new terminal.");
+    }
+  } catch (err) {
+    console.error("Error setting up terminal channel:", err);
   }
 });
 
