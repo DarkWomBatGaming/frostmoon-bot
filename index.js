@@ -1,14 +1,9 @@
 const {
   Client,
   GatewayIntentBits,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
   EmbedBuilder,
-  Events
+  Events,
+  PermissionsBitField
 } = require("discord.js");
 
 const express = require("express");
@@ -19,15 +14,17 @@ const app = express();
 app.get("/", (_, res) => res.send("Frostmoon System Online"));
 app.listen(process.env.PORT || 3000);
 
-/* ================= DATA ================= */
-const igns = JSON.parse(fs.readFileSync("./igns.json", "utf8"))
+/* ================= FILES ================= */
+const ALLOWED_IGNS = JSON.parse(fs.readFileSync("./igns.json", "utf8"))
   .map(i => i.toLowerCase());
 
-const cooldown = new Map();
+let USED_IGNS = fs.existsSync("./used_igns.json")
+  ? JSON.parse(fs.readFileSync("./used_igns.json", "utf8"))
+  : []; // { ign, userId }
 
 /* ================= IDS ================= */
 const GUILD_ID = "1493669690088882187";
-const STATUS_CHANNEL_ID = "1494055445596209172";
+const REALM_CHANNEL_ID = "1494055445596209172";
 const LOG_CHANNEL_ID = "1494753217362399384";
 
 const ROLE_WANDERER = "1494032348067659949";
@@ -37,7 +34,9 @@ const ROLE_KHANRIAN = "1493696754141626540";
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
   ]
 });
 
@@ -46,124 +45,170 @@ client.once("ready", async () => {
   console.log(`❄️ Logged in as ${client.user.tag}`);
 
   const guild = client.guilds.cache.get(GUILD_ID);
-  const channel = await client.channels.fetch(STATUS_CHANNEL_ID);
 
-  /* ===== DELETE ALL OLD BOT MESSAGES ===== */
+  /* ----- Register Slash Commands ----- */
+  await guild.commands.set([
+    {
+      name: "setcount",
+      description: "Manually set Frostmoon team count",
+      options: [{
+        name: "number",
+        type: 4,
+        required: true,
+        description: "Team size"
+      }]
+    },
+    {
+      name: "teamlist",
+      description: "List all Frostmoon team members (Admin only)"
+    },
+    {
+      name: "removeign",
+      description: "Remove an IGN from used list (Admin only)",
+      options: [{
+        name: "ign",
+        type: 3,
+        required: true,
+        description: "IGN to remove"
+      }]
+    }
+  ]);
+
+  const channel = await guild.channels.fetch(REALM_CHANNEL_ID);
+
+  /* ----- Clean bot messages ----- */
   const messages = await channel.messages.fetch({ limit: 50 });
-  const botMessages = messages.filter(m => m.author.id === client.user.id);
-
-  for (const msg of botMessages.values()) {
-    await msg.delete().catch(() => {});
+  for (const msg of messages.values()) {
+    if (msg.author.id === client.user.id) {
+      await msg.delete().catch(() => {});
+    }
   }
 
-  /* ===== CREATE CLEAN STATUS UI ===== */
   await channel.send({ embeds: [createCountEmbed(0)] });
-
-  await channel.send({
-    embeds: [createTerminalEmbed()],
-    components: [terminalButtons()]
-  });
-
   await recountTeam(guild);
 });
 
-/* ================= INTERACTIONS ================= */
+/* ================= SLASH COMMANDS ================= */
 client.on(Events.InteractionCreate, async interaction => {
+  if (!interaction.isChatInputCommand()) return;
 
-  /* ===== STEP 1: START WIZARD ===== */
-  if (interaction.isButton() && interaction.customId === "wizard_start") {
-    const modal = new ModalBuilder()
-      .setCustomId("wizard_step_ign")
-      .setTitle("Frostmoon Identity Input");
+  /* ----- ADMIN CHECK ----- */
+  const isAdmin = interaction.member.permissions.has(
+    PermissionsBitField.Flags.Administrator
+  );
 
-    modal.addComponents(
-      new ActionRowBuilder().addComponents(
-        new TextInputBuilder()
-          .setCustomId("ign")
-          .setLabel("Enter your In-Game Name")
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true)
-      )
-    );
+  /* /setcount */
+  if (interaction.commandName === "setcount") {
+    if (!isAdmin) {
+      return interaction.reply({ content: "❌ Admin only.", ephemeral: true });
+    }
 
-    return interaction.showModal(modal);
+    const number = interaction.options.getInteger("number");
+    const channel = await interaction.guild.channels.fetch(REALM_CHANNEL_ID);
+    const messages = await channel.messages.fetch({ limit: 10 });
+
+    const countMsg = messages.find(m => m.embeds[0]?.title === "📊 FROSTMOON ROSTER");
+    if (countMsg) {
+      await countMsg.edit({ embeds: [createCountEmbed(number)] });
+    }
+
+    return interaction.reply({ content: "✅ Team count updated.", ephemeral: true });
   }
 
-  /* ===== STEP 2: IGN SUBMIT ===== */
-  if (interaction.isModalSubmit() && interaction.customId === "wizard_step_ign") {
-    const ign = interaction.fields.getTextInputValue("ign").toLowerCase();
+  /* /teamlist */
+  if (interaction.commandName === "teamlist") {
+    if (!isAdmin) {
+      return interaction.reply({ content: "❌ Admin only.", ephemeral: true });
+    }
 
-    if (!igns.includes(ign)) {
+    if (USED_IGNS.length === 0) {
       return interaction.reply({
-        content: "🚫 Cryo signature not recognized.",
+        content: "❄️ No verified members yet.",
         ephemeral: true
       });
     }
 
-    const confirmRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`wizard_confirm_${ign}`)
-        .setLabel("Confirm Authorization")
-        .setStyle(ButtonStyle.Success)
-        .setEmoji("❄️")
-    );
+    const list = USED_IGNS
+      .map((e, i) => `${i + 1}. <@${e.userId}> — \`${e.ign}\``)
+      .join("\n");
 
     return interaction.reply({
-      content: "🧬 IGN recognized. Confirm to proceed.",
-      components: [confirmRow],
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x9fe7ff)
+          .setTitle("📜 Frostmoon Team List")
+          .setDescription(list)
+      ],
       ephemeral: true
     });
   }
 
-  /* ===== STEP 3: CONFIRM & VERIFY ===== */
-  if (
-    interaction.isButton() &&
-    interaction.customId.startsWith("wizard_confirm_")
-  ) {
-    const ign = interaction.customId.replace("wizard_confirm_", "");
-    const userId = interaction.user.id;
+  /* /removeign */
+  if (interaction.commandName === "removeign") {
+    if (!isAdmin) {
+      return interaction.reply({ content: "❌ Admin only.", ephemeral: true });
+    }
 
-    if (cooldown.has(userId)) {
+    const ign = interaction.options.getString("ign").toLowerCase();
+    const index = USED_IGNS.findIndex(e => e.ign === ign);
+
+    if (index === -1) {
       return interaction.reply({
-        content: "⏳ Frostmoon systems cooling down...",
+        content: "🚫 IGN not found in used list.",
         ephemeral: true
       });
     }
 
-    cooldown.set(userId, true);
-    setTimeout(() => cooldown.delete(userId), 10000);
+    USED_IGNS.splice(index, 1);
+    fs.writeFileSync("./used_igns.json", JSON.stringify(USED_IGNS, null, 2));
 
-    await interaction.deferReply({ ephemeral: true });
-
-    const stages = [
-      "❄️ Initializing Cryo Matrix...",
-      "📡 Syncing Ley-Line Data...",
-      "🧠 Verifying Identity...",
-      "🔓 Granting Clearance..."
-    ];
-
-    for (let i = 0; i < stages.length; i++) {
-      setTimeout(() => interaction.editReply(stages[i]), i * 900);
-    }
-
-    setTimeout(async () => {
-      const member = await interaction.guild.members.fetch(userId);
-
-      if (member.roles.cache.has(ROLE_KHANRIAN)) {
-        return interaction.editReply("🛡️ Already authorized.");
-      }
-
-      await member.roles.remove(ROLE_WANDERER).catch(() => {});
-      await member.roles.add(ROLE_KHANRIAN);
-
-      await interaction.editReply({
-        embeds: [successEmbed(interaction.user, ign)]
-      });
-
-      await logJoin(interaction.guild, interaction.user, ign);
-      await recountTeam(interaction.guild);
-    }, 3800);
+    return interaction.reply({
+      content: `♻️ IGN \`${ign}\` has been released.`,
+      ephemeral: true
+    });
   }
+});
+
+/* ================= MESSAGE-BASED VERIFICATION ================= */
+client.on(Events.MessageCreate, async message => {
+  if (message.channel.id !== REALM_CHANNEL_ID) return;
+  if (message.author.bot) return;
+
+  const ign = message.content.toLowerCase();
+  await message.delete().catch(() => {});
+
+  const member = await message.guild.members.fetch(message.author.id);
+
+  if (member.roles.cache.has(ROLE_KHANRIAN)) {
+    return message.author.send(
+      "❄️ You are already part of the Frostmoon team."
+    ).catch(() => {});
+  }
+
+  if (!ALLOWED_IGNS.includes(ign)) {
+    return message.author.send(
+      "🚫 Cryo signature not recognized."
+    ).catch(() => {});
+  }
+
+  if (USED_IGNS.some(e => e.ign === ign)) {
+    return message.author.send(
+      "🔒 This IGN has already been claimed."
+    ).catch(() => {});
+  }
+
+  await member.roles.remove(ROLE_WANDERER).catch(() => {});
+  await member.roles.add(ROLE_KHANRIAN);
+
+  USED_IGNS.push({ ign, userId: member.id });
+  fs.writeFileSync("./used_igns.json", JSON.stringify(USED_IGNS, null, 2));
+
+  await message.author.send(
+    "❄️ Verification successful. Welcome to Frostmoon."
+  ).catch(() => {});
+
+  await logJoin(message.guild, member.user, ign);
+  await recountTeam(message.guild);
 });
 
 /* ================= MEMBER LEAVE ================= */
@@ -178,57 +223,19 @@ function createCountEmbed(count) {
   return new EmbedBuilder()
     .setColor(0x9fe7ff)
     .setTitle("📊 FROSTMOON ROSTER")
-    .setDescription(`**Active Khanrians:**\n\n# ❄️ ${count}`)
+    .setDescription(`# ❄️ ${count}`)
     .setFooter({ text: "Live Frostmoon Census" });
 }
 
-function createTerminalEmbed() {
-  return new EmbedBuilder()
-    .setColor(0x9fe7ff)
-    .setTitle("❄️ FROSTMOON VERIFICATION TERMINAL")
-    .setDescription(
-      "```ansi\n\u001b[1;36mSYSTEM ONLINE\u001b[0m\n\u001b[2;37mAWAITING AUTHORIZATION...\u001b[0m\n```"
-    )
-    .setFooter({ text: "Frostmoon Security Core" });
-}
-
-function terminalButtons() {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("wizard_start")
-      .setLabel("Begin Verification")
-      .setStyle(ButtonStyle.Primary)
-      .setEmoji("❄️")
-  );
-}
-
-function successEmbed(user, ign) {
-  return new EmbedBuilder()
-    .setColor(0x9fe7ff)
-    .setTitle("❄️ CLEARANCE GRANTED")
-    .setDescription(
-      "```diff\n+ CRYO SIGNATURE CONFIRMED\n+ STATUS: KHANRIAN\n```"
-    )
-    .addFields(
-      { name: "Agent", value: `<@${user.id}>`, inline: true },
-      { name: "IGN", value: ign, inline: true }
-    )
-    .setThumbnail(user.displayAvatarURL())
-    .setTimestamp();
-}
-
 async function recountTeam(guild) {
-  const channel = await guild.channels.fetch(STATUS_CHANNEL_ID);
+  const channel = await guild.channels.fetch(REALM_CHANNEL_ID);
   const messages = await channel.messages.fetch({ limit: 10 });
 
   const count = guild.members.cache.filter(m =>
     m.roles.cache.has(ROLE_KHANRIAN)
   ).size;
 
-  const countMsg = messages.find(
-    m => m.embeds[0]?.title === "📊 FROSTMOON ROSTER"
-  );
-
+  const countMsg = messages.find(m => m.embeds[0]?.title === "📊 FROSTMOON ROSTER");
   if (countMsg) {
     await countMsg.edit({ embeds: [createCountEmbed(count)] });
   }
