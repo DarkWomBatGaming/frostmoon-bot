@@ -31,7 +31,7 @@ client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
   // Send verify button to a channel (CHANGE CHANNEL ID)
-  const channel = await client.channels.fetch("YOUR_CHANNEL_ID");
+  const channel = await client.channels.fetch("1494055445596209172");
 
   const button = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
