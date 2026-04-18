@@ -96,15 +96,6 @@ function sleep(ms) {
 async function handleInteraction(interaction) {
   // BUTTON: start
   if (interaction.isButton() && interaction.customId === "start") {
-    await interaction.reply({ content: "> INITIALIZING CRYO SYSTEM...", ephemeral: true });
-
-    await sleep(800);
-    await interaction.editReply("> LOADING SECURITY LAYER...");
-
-    await sleep(800);
-    await interaction.editReply("> ESTABLISHING LINK...");
-
-    await sleep(500);
 
     const modal = new ModalBuilder()
       .setCustomId("ign_modal")
