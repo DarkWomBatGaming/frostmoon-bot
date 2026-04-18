@@ -15,7 +15,7 @@ async function updateRoster(guild) {
   ).size;
 
   const ICON_URL =
-  "https://cdn.discordapp.com/attachments/1479200956209041613/1495040536086712381/frostmoon_icon.webp?ex=69e4cc80&is=69e37b00&hm=f0c70ec1228c3826ba5345b37426b928ac80ce0b7f21b7ecb61830934f11eea0";
+  "https://cdn.discordapp.com/attachments/1479200956209041613/1495041778544541799/frostmoon_icon.jpg?ex=69e4cda8&is=69e37c28&hm=1b262b2ca95eae227d638b7a9757a2fcd9e1488e35deb9aace2b929b21d695d5";
 
 const embed = new EmbedBuilder()
   .setColor(0x132f4c)
