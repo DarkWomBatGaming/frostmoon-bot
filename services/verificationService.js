@@ -12,12 +12,13 @@ const {
 const config = require("../config");
 const { updateRoster } = require("./rosterService");
 
+const LOCK_FILE = "./data/ui_lock.json";
+
+// Load allowed IGNs
 const ALLOWED_IGNS = JSON.parse(fs.readFileSync("./data/igns.json", "utf8"))
   .map(i => String(i).toLowerCase());
 
-const LOCK_FILE = "./data/ui_lock.json";
-
-// Ensure data file exists
+// Ensure used_igns exists
 if (!fs.existsSync("./data/used_igns.json")) {
   fs.writeFileSync("./data/used_igns.json", "[]");
 }
@@ -47,7 +48,7 @@ async function setupVerification(client) {
     ]
   });
 
-  // PANEL 2 (roster placeholder we will edit later)
+  // PANEL 2 (roster placeholder)
   const rosterMsg = await channel.send({
     embeds: [
       new EmbedBuilder()
@@ -75,7 +76,6 @@ async function setupVerification(client) {
     ]
   });
 
-  // Save message IDs so rosterService can edit the right message
   fs.writeFileSync(
     LOCK_FILE,
     JSON.stringify({ rosterId: rosterMsg.id, verifyId: verifyMsg.id }, null, 2)
@@ -83,7 +83,7 @@ async function setupVerification(client) {
 
   console.log("❄️ Frostmoon UI rebuilt cleanly.");
 
-  // Populate roster immediately
+  // Try updating roster once on startup (safe: cache-based)
   const guild = client.guilds.cache.get(config.GUILD_ID) ?? client.guilds.cache.first();
   if (guild) await updateRoster(guild);
 }
