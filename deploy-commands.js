@@ -37,6 +37,18 @@ if (!config.GUILD_ID) {
 // Keep these in sync with your commands/*.js definitions
 const commands = [
   {
+  name: "verifiedusers",
+  description: "List verified users from used_igns.json (admin)."
+},
+{
+  name: "refreshroster",
+  description: "Force refresh the roster message (admin)."
+},
+{
+  name: "listnames",
+  description: "List verified IGNs (names) from used_igns.json (admin)."
+},
+  {
     name: "setcount",
     description: "Override the roster count (admin).",
     options: [
