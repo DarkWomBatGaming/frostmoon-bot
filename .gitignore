@@ -1,0 +1,8 @@
+# secrets
+.env
+
+# dependencies
+node_modules/
+
+# bot runtime generated files
+data/*.json
