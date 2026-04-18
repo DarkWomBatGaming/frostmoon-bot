@@ -37,6 +37,10 @@ if (!config.GUILD_ID) {
 // Keep these in sync with your commands/*.js definitions
 const commands = [
   {
+  name: "restartbot",
+  description: "Restart the bot process via PM2 (admin)."
+},
+  {
   name: "verifiedusers",
   description: "List verified users from used_igns.json (admin)."
 },
