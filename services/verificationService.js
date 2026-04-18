@@ -44,63 +44,65 @@ async function setupVerification(client) {
 
   console.log("✅ Old UI cleared.");
 
-  // PANEL 1
- await channel.send({
-  embeds: [
-    new EmbedBuilder()
-      .setColor(0x0b1a2b)
-      .setTitle("❄️ Frostmoon Control Core")
-      .setDescription("System online and secured.")
-      .addFields(
-        { name: "Status", value: "🟢 Online", inline: true },
-        { name: "Core", value: "Cryo-stable", inline: true },
-        { name: "Security", value: "Active", inline: true }
-      )
-      .setThumbnail(ICON_URL)
-      .setImage(BANNER_URL)
-      .setFooter({ text: "Frostmoon Security • Automated Systems" })
-  ]
-});
+  // PANEL 1 (premium banner card)
+  await channel.send({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0x0b1a2b)
+        .setTitle("❄️ Frostmoon Control Core")
+        .setDescription("System online and secured.")
+        .addFields(
+          { name: "Status", value: "🟢 Online", inline: true },
+          { name: "Core", value: "Cryo-stable", inline: true },
+          { name: "Security", value: "Active", inline: true }
+        )
+        .setThumbnail(ICON_URL)
+        .setImage(BANNER_URL)
+        .setFooter({ text: "Frostmoon Security • Automated Systems" })
+    ]
+  });
 
   // PANEL 2 (roster placeholder)
   const rosterMsg = await channel.send({
     embeds: [
       new EmbedBuilder()
         .setColor(0x132f4c)
-        .setTitle("📊 LIVE ROSTER")
-        .setDescription("Initializing...")
+        .setTitle("📊 Live Roster")
+        .setDescription("Loading roster data…")
+        .setThumbnail(ICON_URL)
+        .setFooter({ text: "Auto-updated • Cache-based count" })
     ]
   });
 
-  // PANEL 3 (verification UI)
-const verifyMsg = await channel.send({
-  embeds: [
-    new EmbedBuilder()
-      .setColor(0x1f4e79)
-      .setTitle("🧬 Identity Verification")
-      .setDescription("Press **Initiate Scan** to begin verification.")
-      .addFields(
-        { name: "Status", value: "🟢 Awaiting traveler authorization", inline: false },
-        { name: "Input", value: "IGN required", inline: true },
-        { name: "Privacy", value: "Only you can see prompts & results", inline: true },
-        { name: "Note", value: "Your IGN must match the approved roster list.", inline: false }
+  // PANEL 3 (premium verification card + banner)
+  const verifyMsg = await channel.send({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0x1f4e79)
+        .setTitle("🧬 Identity Verification")
+        .setDescription("Press **Initiate Scan** to begin verification.")
+        .addFields(
+          { name: "Status", value: "🟢 Ready", inline: true },
+          { name: "Input", value: "IGN", inline: true },
+          { name: "Note", value: "IGN must match the approved roster list.", inline: false }
+        )
+        .setThumbnail(ICON_URL)
+        .setImage(BANNER_URL)
+        .setFooter({ text: "Frostmoon Security • Verification Console" })
+    ],
+    components: [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("start")
+          .setLabel("Initiate Scan")
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId("help")
+          .setLabel("Help")
+          .setStyle(ButtonStyle.Secondary)
       )
-      .setThumbnail(ICON_URL)
-      .setFooter({ text: "Frostmoon Security • Verification Console" })
-  ],
-  components: [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("start")
-        .setLabel("Initiate Scan")
-        .setStyle(ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId("help")
-        .setLabel("Help")
-        .setStyle(ButtonStyle.Secondary)
-    )
-  ]
-});
+    ]
+  });
 
   fs.writeFileSync(
     LOCK_FILE,
@@ -120,36 +122,34 @@ function sleep(ms) {
 }
 
 async function handleInteraction(interaction) {
-  
-// BUTTON: start
-if (interaction.isButton() && interaction.customId === "start") {
-  const modal = new ModalBuilder()
-    .setCustomId("ign_modal")
-    .setTitle("Frostmoon Identity Matrix");
-
-  const input = new TextInputBuilder()
-    .setCustomId("ign")
-    .setLabel("Enter your IGN")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true);
-
-  modal.addComponents(new ActionRowBuilder().addComponents(input));
-  return interaction.showModal(modal);
-}
-
   // BUTTON: help
-if (interaction.isButton() && interaction.customId === "help") {
-  return interaction.reply({
-    ephemeral: true,
-    content:
-      "**How verification works**\n" +
-      "1) Click **Initiate Scan**\n" +
-      "2) Enter your IGN exactly as listed\n" +
-      "3) Confirm to receive access\n\n" +
-      "If your IGN is missing or already claimed, contact staff."
-  });
-}
-  
+  if (interaction.isButton() && interaction.customId === "help") {
+    return interaction.reply({
+      ephemeral: true,
+      content:
+        "**How verification works**\n" +
+        "1) Click **Initiate Scan**\n" +
+        "2) Enter your IGN exactly as listed\n" +
+        "3) Confirm to receive access\n\n" +
+        "If your IGN is missing or already claimed, contact staff."
+    });
+  }
+
+  // BUTTON: start (IMPORTANT: do NOT reply/defer before showModal)
+  if (interaction.isButton() && interaction.customId === "start") {
+    const modal = new ModalBuilder()
+      .setCustomId("ign_modal")
+      .setTitle("Frostmoon Identity Matrix");
+
+    const input = new TextInputBuilder()
+      .setCustomId("ign")
+      .setLabel("Enter your IGN")
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true);
+
+    modal.addComponents(new ActionRowBuilder().addComponents(input));
+    return interaction.showModal(modal);
+  }
 
   // MODAL: submit IGN
   if (interaction.isModalSubmit() && interaction.customId === "ign_modal") {
@@ -181,11 +181,11 @@ if (interaction.isButton() && interaction.customId === "help") {
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`confirm_${ign}`)
-        .setLabel("CONFIRM AWAKENING")
+        .setLabel("Confirm Awakening")
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId("cancel")
-        .setLabel("CANCEL")
+        .setLabel("Cancel")
         .setStyle(ButtonStyle.Danger)
     );
 
@@ -194,8 +194,10 @@ if (interaction.isButton() && interaction.customId === "help") {
       embeds: [
         new EmbedBuilder()
           .setColor(0x9fe7ff)
-          .setTitle("IDENTITY DETECTED")
+          .setTitle("Identity Detected")
           .setDescription(`IGN: **${ign}**\nProceed with awakening?`)
+          .setThumbnail(ICON_URL)
+          .setFooter({ text: "Frostmoon Security" })
       ],
       components: [row]
     });
