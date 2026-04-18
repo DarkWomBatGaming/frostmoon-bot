@@ -14,11 +14,19 @@ async function updateRoster(guild) {
     m.roles.cache.has(config.ROLE_KHANRIAN)
   ).size;
 
-  const embed = new EmbedBuilder()
-    .setColor(0x132f4c)
-    .setTitle("📊 LIVE ROSTER")
-    .setDescription(`\`\`\`yaml\nACTIVE_MEMBERS: ${count}\nSTATUS: STABLE\n\`\`\``);
+  const ICON_URL =
+  "https://cdn.discordapp.com/attachments/1479200956209041613/1495036499853443142/2025-09-11_36abcbf915f7a.webp?ex=69e4c8be&is=69e3773e&hm=e31975556b8b0eaa4310bd09f26ea911f98f50d862a79d8bc1c93bb2a75f1d81";
 
+const embed = new EmbedBuilder()
+  .setColor(0x132f4c)
+  .setTitle("📊 Live Roster")
+  .setDescription("Current verified members (cache-based).")
+  .addFields(
+    { name: "Active Members", value: `**${count}**`, inline: true },
+    { name: "Status", value: "Stable", inline: true }
+  )
+  .setThumbnail(ICON_URL)
+  .setFooter({ text: "Updates automatically • Count may be slightly delayed" });
   let rosterMsg = null;
   try {
     const lock = JSON.parse(fs.readFileSync(LOCK_FILE, "utf8"));
