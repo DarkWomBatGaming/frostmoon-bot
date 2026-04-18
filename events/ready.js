@@ -1,16 +1,16 @@
 const { setupVerification } = require("../services/verificationService");
-const { updateRoster } = require("../services/rosterService");
 
 module.exports = {
-  name: "ready",
+  name: "clientReady", // v15+ uses clientReady (v14 still supports ready; this avoids warning)
   once: true,
 
   async execute(client) {
     console.log(`❄️ Logged in as ${client.user.tag}`);
 
-    await setupVerification(client);
-
-    const guild = client.guilds.cache.first();
-    if (guild) await updateRoster(guild);
+    try {
+      await setupVerification(client);
+    } catch (err) {
+      console.error("setupVerification failed:", err);
+    }
   }
 };
