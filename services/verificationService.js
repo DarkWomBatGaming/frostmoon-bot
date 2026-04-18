@@ -12,12 +12,12 @@ const {
 const config = require("../config");
 const { updateRoster } = require("./rosterService");
 
-const ALLOWED_IGNS = JSON.parse(fs.readFileSync("./data/igns.json"))
-  .map(i => i.toLowerCase());
+const ALLOWED_IGNS = JSON.parse(fs.readFileSync("./data/igns.json", "utf8"))
+  .map(i => String(i).toLowerCase());
 
 const LOCK_FILE = "./data/ui_lock.json";
 
-/* SAFE FILE INIT */
+// Ensure data file exists
 if (!fs.existsSync("./data/used_igns.json")) {
   fs.writeFileSync("./data/used_igns.json", "[]");
 }
@@ -37,19 +37,17 @@ async function setupVerification(client) {
 
   console.log("✅ Old UI cleared.");
 
-  /* PANEL 1 */
+  // PANEL 1
   await channel.send({
     embeds: [
       new EmbedBuilder()
         .setColor(0x0b1a2b)
         .setTitle("❄️ FROSTMOON CONTROL CORE")
-        .setDescription(
-          "```yaml\nSTATUS: ONLINE\nCORE: CRYO-STABLE\nSECURITY: ACTIVE\n```"
-        )
+        .setDescription("```yaml\nSTATUS: ONLINE\nCORE: CRYO-STABLE\nSECURITY: ACTIVE\n```")
     ]
   });
 
-  /* PANEL 2 */
+  // PANEL 2 (roster placeholder we will edit later)
   const rosterMsg = await channel.send({
     embeds: [
       new EmbedBuilder()
@@ -59,15 +57,13 @@ async function setupVerification(client) {
     ]
   });
 
-  /* PANEL 3 */
+  // PANEL 3 (verification UI)
   const verifyMsg = await channel.send({
     embeds: [
       new EmbedBuilder()
         .setColor(0x1f4e79)
         .setTitle("🧬 IDENTITY VERIFICATION CONSOLE")
-        .setDescription(
-          "```diff\n+ AWAITING TRAVELER AUTHORIZATION\n+ READY FOR INPUT\n```"
-        )
+        .setDescription("```diff\n+ AWAITING TRAVELER AUTHORIZATION\n+ READY FOR INPUT\n```")
     ],
     components: [
       new ActionRowBuilder().addComponents(
@@ -79,76 +75,27 @@ async function setupVerification(client) {
     ]
   });
 
-  fs.writeFileSync(
-    "./data/ui_lock.json",
-    JSON.stringify({
-      rosterId: rosterMsg.id,
-      verifyId: verifyMsg.id
-    }, null, 2)
-  );
-
-  console.log("❄️ Frostmoon UI rebuilt cleanly.");
-}
-
-  /* ================= SAVE IDS ================= */
-  fs.writeFileSync(
-    "./data/ui_lock.json",
-    JSON.stringify({
-      rosterId: rosterMsg.id,
-      verifyId: verifyMsg.id
-    }, null, 2)
-  );
-
-  console.log("❄️ Frostmoon UI rebuilt cleanly.");
-}
-
-  /* ===== PANEL 2: ROSTER ===== */
-  await channel.send({
-    embeds: [
-      new EmbedBuilder()
-        .setColor(0x132f4c)
-        .setTitle("📊 LIVE ROSTER")
-        .setDescription("Initializing...")
-    ]
-  });
-
-  /* ===== PANEL 3: VERIFICATION ===== */
-  const verifyMsg = await channel.send({
-    embeds: [
-      new EmbedBuilder()
-        .setColor(0x1f4e79)
-        .setTitle("🧬 IDENTITY VERIFICATION CONSOLE")
-        .setDescription(
-          "```diff\n+ AWAITING TRAVELER AUTHORIZATION\n+ READY FOR INPUT\n```"
-        )
-        .setFooter({ text: "Frostmoon Security Layer v3.2" })
-    ],
-    components: [
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("start")
-          .setLabel("▶ INITIATE SCAN")
-          .setStyle(ButtonStyle.Success)
-      )
-    ]
-  });
-
+  // Save message IDs so rosterService can edit the right message
   fs.writeFileSync(
     LOCK_FILE,
-    JSON.stringify({ created: true, verifyId: verifyMsg.id }, null, 2)
+    JSON.stringify({ rosterId: rosterMsg.id, verifyId: verifyMsg.id }, null, 2)
   );
+
+  console.log("❄️ Frostmoon UI rebuilt cleanly.");
+
+  // Populate roster immediately
+  const guild = client.guilds.cache.get(config.GUILD_ID) ?? client.guilds.cache.first();
+  if (guild) await updateRoster(guild);
 }
 
 /* ================= HANDLER ================= */
-async function sleep(ms) {
+function sleep(ms) {
   return new Promise(res => setTimeout(res, ms));
 }
 
 async function handleInteraction(interaction) {
-
-  /* ================= BUTTON ================= */
+  // BUTTON: start
   if (interaction.isButton() && interaction.customId === "start") {
-
     await interaction.reply({ content: "> INITIALIZING CRYO SYSTEM...", ephemeral: true });
 
     await sleep(800);
@@ -170,13 +117,11 @@ async function handleInteraction(interaction) {
       .setRequired(true);
 
     modal.addComponents(new ActionRowBuilder().addComponents(input));
-
     return interaction.showModal(modal);
   }
 
-  /* ================= MODAL ================= */
+  // MODAL: submit IGN
   if (interaction.isModalSubmit() && interaction.customId === "ign_modal") {
-
     const ign = interaction.fields.getTextInputValue("ign").toLowerCase();
     const member = await interaction.guild.members.fetch(interaction.user.id);
 
@@ -192,27 +137,21 @@ async function handleInteraction(interaction) {
       return interaction.editReply("🧊 SYSTEM: Already verified.");
     }
 
-    const used = JSON.parse(fs.readFileSync("./data/used_igns.json"));
+    const used = JSON.parse(fs.readFileSync("./data/used_igns.json", "utf8"));
 
     if (!ALLOWED_IGNS.includes(ign)) {
-      return interaction.editReply(
-        "❌ ACCESS DENIED\n> REASON: INVALID IDENTITY"
-      );
+      return interaction.editReply("❌ ACCESS DENIED\n> REASON: INVALID IDENTITY");
     }
 
     if (used.find(u => u.ign === ign)) {
-      return interaction.editReply(
-        "🔒 ACCESS DENIED\n> REASON: ID ALREADY CLAIMED"
-      );
+      return interaction.editReply("🔒 ACCESS DENIED\n> REASON: ID ALREADY CLAIMED");
     }
 
-    /* ================= CONFIRM UI ================= */
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`confirm_${ign}`)
         .setLabel("CONFIRM AWAKENING")
         .setStyle(ButtonStyle.Success),
-
       new ButtonBuilder()
         .setCustomId("cancel")
         .setLabel("CANCEL")
@@ -231,18 +170,13 @@ async function handleInteraction(interaction) {
     });
   }
 
-  /* ================= CANCEL ================= */
+  // BUTTON: cancel
   if (interaction.isButton() && interaction.customId === "cancel") {
-    return interaction.update({
-      content: "> PROCESS TERMINATED",
-      embeds: [],
-      components: []
-    });
+    return interaction.update({ content: "> PROCESS TERMINATED", embeds: [], components: [] });
   }
 
-  /* ================= CONFIRM ================= */
+  // BUTTON: confirm
   if (interaction.isButton() && interaction.customId.startsWith("confirm_")) {
-
     const ign = interaction.customId.replace("confirm_", "");
     const member = await interaction.guild.members.fetch(interaction.user.id);
 
@@ -259,16 +193,13 @@ async function handleInteraction(interaction) {
     await member.roles.add(config.ROLE_KHANRIAN);
     await member.roles.remove(config.ROLE_WANDERER);
 
-    const used = JSON.parse(fs.readFileSync("./data/used_igns.json"));
+    const used = JSON.parse(fs.readFileSync("./data/used_igns.json", "utf8"));
     used.push({ ign, userId: member.id });
-
     fs.writeFileSync("./data/used_igns.json", JSON.stringify(used, null, 2));
 
     await updateRoster(interaction.guild);
 
-    return interaction.editReply(
-      "✅ ACCESS GRANTED\n❄️ Welcome to Frostmoon."
-    );
+    return interaction.editReply("✅ ACCESS GRANTED\n❄️ Welcome to Frostmoon.");
   }
 }
 
