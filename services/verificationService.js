@@ -14,6 +14,12 @@ const { updateRoster } = require("./rosterService");
 
 const LOCK_FILE = "./data/ui_lock.json";
 
+const ICON_URL =
+  "https://cdn.discordapp.com/attachments/1479200956209041613/1495036499853443142/2025-09-11_36abcbf915f7a.webp?ex=69e4c8be&is=69e3773e&hm=e31975556b8b0eaa4310bd09f26ea911f98f50d862a79d8bc1c93bb2a75f1d81";
+
+const BANNER_URL =
+  "https://cdn.discordapp.com/attachments/1479200956209041613/1495036786970198147/Frost_Moon_Reborn.webp?ex=69e4c902&is=69e37782&hm=fa3e03d66a30350283d3a8c5587883262a789b43d84d37436c8d483f6efe5fa9";
+
 // Load allowed IGNs
 const ALLOWED_IGNS = JSON.parse(fs.readFileSync("./data/igns.json", "utf8"))
   .map(i => String(i).toLowerCase());
@@ -39,14 +45,22 @@ async function setupVerification(client) {
   console.log("✅ Old UI cleared.");
 
   // PANEL 1
-  await channel.send({
-    embeds: [
-      new EmbedBuilder()
-        .setColor(0x0b1a2b)
-        .setTitle("❄️ FROSTMOON CONTROL CORE")
-        .setDescription("```yaml\nSTATUS: ONLINE\nCORE: CRYO-STABLE\nSECURITY: ACTIVE\n```")
-    ]
-  });
+ await channel.send({
+  embeds: [
+    new EmbedBuilder()
+      .setColor(0x0b1a2b)
+      .setTitle("❄️ Frostmoon Control Core")
+      .setDescription("System online and secured.")
+      .addFields(
+        { name: "Status", value: "🟢 Online", inline: true },
+        { name: "Core", value: "Cryo-stable", inline: true },
+        { name: "Security", value: "Active", inline: true }
+      )
+      .setThumbnail(ICON_URL)
+      .setImage(BANNER_URL)
+      .setFooter({ text: "Frostmoon Security • Automated Systems" })
+  ]
+});
 
   // PANEL 2 (roster placeholder)
   const rosterMsg = await channel.send({
@@ -59,22 +73,34 @@ async function setupVerification(client) {
   });
 
   // PANEL 3 (verification UI)
-  const verifyMsg = await channel.send({
-    embeds: [
-      new EmbedBuilder()
-        .setColor(0x1f4e79)
-        .setTitle("🧬 IDENTITY VERIFICATION CONSOLE")
-        .setDescription("```diff\n+ AWAITING TRAVELER AUTHORIZATION\n+ READY FOR INPUT\n```")
-    ],
-    components: [
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("start")
-          .setLabel("▶ INITIATE SCAN")
-          .setStyle(ButtonStyle.Success)
+const verifyMsg = await channel.send({
+  embeds: [
+    new EmbedBuilder()
+      .setColor(0x1f4e79)
+      .setTitle("🧬 Identity Verification")
+      .setDescription("Press **Initiate Scan** to begin verification.")
+      .addFields(
+        { name: "Status", value: "🟢 Awaiting traveler authorization", inline: false },
+        { name: "Input", value: "IGN required", inline: true },
+        { name: "Privacy", value: "Only you can see prompts & results", inline: true },
+        { name: "Note", value: "Your IGN must match the approved roster list.", inline: false }
       )
-    ]
-  });
+      .setThumbnail(ICON_URL)
+      .setFooter({ text: "Frostmoon Security • Verification Console" })
+  ],
+  components: [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("start")
+        .setLabel("Initiate Scan")
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId("help")
+        .setLabel("Help")
+        .setStyle(ButtonStyle.Secondary)
+    )
+  ]
+});
 
   fs.writeFileSync(
     LOCK_FILE,
@@ -94,22 +120,36 @@ function sleep(ms) {
 }
 
 async function handleInteraction(interaction) {
-  // BUTTON: start
-  if (interaction.isButton() && interaction.customId === "start") {
+  
+// BUTTON: start
+if (interaction.isButton() && interaction.customId === "start") {
+  const modal = new ModalBuilder()
+    .setCustomId("ign_modal")
+    .setTitle("Frostmoon Identity Matrix");
 
-    const modal = new ModalBuilder()
-      .setCustomId("ign_modal")
-      .setTitle("Frostmoon Identity Matrix");
+  const input = new TextInputBuilder()
+    .setCustomId("ign")
+    .setLabel("Enter your IGN")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
 
-    const input = new TextInputBuilder()
-      .setCustomId("ign")
-      .setLabel("Enter your IGN")
-      .setStyle(TextInputStyle.Short)
-      .setRequired(true);
+  modal.addComponents(new ActionRowBuilder().addComponents(input));
+  return interaction.showModal(modal);
+}
 
-    modal.addComponents(new ActionRowBuilder().addComponents(input));
-    return interaction.showModal(modal);
-  }
+  // BUTTON: help
+if (interaction.isButton() && interaction.customId === "help") {
+  return interaction.reply({
+    ephemeral: true,
+    content:
+      "**How verification works**\n" +
+      "1) Click **Initiate Scan**\n" +
+      "2) Enter your IGN exactly as listed\n" +
+      "3) Confirm to receive access\n\n" +
+      "If your IGN is missing or already claimed, contact staff."
+  });
+}
+  
 
   // MODAL: submit IGN
   if (interaction.isModalSubmit() && interaction.customId === "ign_modal") {
