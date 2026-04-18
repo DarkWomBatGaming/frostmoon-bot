@@ -7,9 +7,9 @@ const LOCK_FILE = "./data/ui_lock.json";
 async function updateRoster(guild) {
   const channel = await guild.channels.fetch(config.CHANNEL_ID);
 
-  // Make sure member cache is hydrated so role counts are accurate
-  await guild.members.fetch();
-
+  // DO NOT call guild.members.fetch() here — it can rate limit and crash the bot.
+  // This count is cache-based (safe). If you need perfect accuracy, we can redesign
+  // to store verified users in used_igns.json and count that instead.
   const count = guild.members.cache.filter(m =>
     m.roles.cache.has(config.ROLE_KHANRIAN)
   ).size;
@@ -19,7 +19,6 @@ async function updateRoster(guild) {
     .setTitle("📊 LIVE ROSTER")
     .setDescription(`\`\`\`yaml\nACTIVE_MEMBERS: ${count}\nSTATUS: STABLE\n\`\`\``);
 
-  // Prefer editing the known roster message created during setup
   let rosterMsg = null;
   try {
     const lock = JSON.parse(fs.readFileSync(LOCK_FILE, "utf8"));
@@ -27,7 +26,7 @@ async function updateRoster(guild) {
       rosterMsg = await channel.messages.fetch(lock.rosterId).catch(() => null);
     }
   } catch {
-    // ignore: lock file might not exist yet
+    // ignore
   }
 
   if (rosterMsg) {
