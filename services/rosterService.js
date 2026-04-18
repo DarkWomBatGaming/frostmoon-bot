@@ -1,5 +1,8 @@
 const { EmbedBuilder } = require("discord.js");
+const fs = require("fs");
 const config = require("../config");
+
+const LOCK_FILE = "./data/ui_lock.json";
 
 async function updateRoster(guild) {
   const channel = await guild.channels.fetch(config.CHANNEL_ID);
@@ -10,27 +13,31 @@ async function updateRoster(guild) {
     m.roles.cache.has(config.ROLE_KHANRIAN)
   ).size;
 
-  const messages = await channel.messages.fetch({ limit: 50 });
+  const embed = new EmbedBuilder()
+    .setColor(0x132f4c)
+    .setTitle("📊 LIVE ROSTER")
+    .setDescription(
+      `\`\`\`yaml\nACTIVE_MEMBERS: ${count}\nSTATUS: STABLE\n\`\`\``
+    );
 
-  let msg = messages.find(m =>
-    m.embeds[0]?.title === "📊 FROSTMOON ROSTER"
-  );
+  let msg = null;
 
-  cconst embed = new EmbedBuilder()
-  .setColor(0x132f4c)
-  .setTitle("📊 LIVE ROSTER")
-  .setDescription(
-    `\`\`\`yaml\nACTIVE_MEMBERS: ${count}\nSTATUS: STABLE\n\`\`\``
-  );
+  if (fs.existsSync(LOCK_FILE)) {
+    try {
+      const lock = JSON.parse(fs.readFileSync(LOCK_FILE));
+      if (lock.rosterId) {
+        msg = await channel.messages.fetch(lock.rosterId).catch(() => null);
+      }
+    } catch {
+      console.error("⚠️ Failed to read ui_lock.json; roster message will be sent fresh.");
+    }
+  }
 
- const lock = JSON.parse(fs.readFileSync("./data/ui_lock.json"));
-
-const msg = await channel.messages.fetch(lock.rosterId).catch(() => null);
-
-if (msg) {
-  await msg.edit({ embeds: [embed] });
-} else {
-  await channel.send({ embeds: [embed] });
+  if (msg) {
+    await msg.edit({ embeds: [embed] });
+  } else {
+    await channel.send({ embeds: [embed] });
+  }
 }
 
 module.exports = { updateRoster };

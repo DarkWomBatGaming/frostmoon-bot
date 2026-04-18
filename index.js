@@ -23,4 +23,9 @@ for (const file of eventFiles) {
   }
 }
 
+if (!process.env.TOKEN) {
+  console.error("❌ ERROR: TOKEN environment variable is not set. Exiting.");
+  process.exit(1);
+}
+
 client.login(process.env.TOKEN);

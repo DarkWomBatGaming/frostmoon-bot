@@ -80,63 +80,14 @@ async function setupVerification(client) {
   });
 
   fs.writeFileSync(
-    "./data/ui_lock.json",
-    JSON.stringify({
-      rosterId: rosterMsg.id,
-      verifyId: verifyMsg.id
-    }, null, 2)
-  );
-
-  console.log("❄️ Frostmoon UI rebuilt cleanly.");
-}
-
-  /* ================= SAVE IDS ================= */
-  fs.writeFileSync(
-    "./data/ui_lock.json",
-    JSON.stringify({
-      rosterId: rosterMsg.id,
-      verifyId: verifyMsg.id
-    }, null, 2)
-  );
-
-  console.log("❄️ Frostmoon UI rebuilt cleanly.");
-}
-
-  /* ===== PANEL 2: ROSTER ===== */
-  await channel.send({
-    embeds: [
-      new EmbedBuilder()
-        .setColor(0x132f4c)
-        .setTitle("📊 LIVE ROSTER")
-        .setDescription("Initializing...")
-    ]
-  });
-
-  /* ===== PANEL 3: VERIFICATION ===== */
-  const verifyMsg = await channel.send({
-    embeds: [
-      new EmbedBuilder()
-        .setColor(0x1f4e79)
-        .setTitle("🧬 IDENTITY VERIFICATION CONSOLE")
-        .setDescription(
-          "```diff\n+ AWAITING TRAVELER AUTHORIZATION\n+ READY FOR INPUT\n```"
-        )
-        .setFooter({ text: "Frostmoon Security Layer v3.2" })
-    ],
-    components: [
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("start")
-          .setLabel("▶ INITIATE SCAN")
-          .setStyle(ButtonStyle.Success)
-      )
-    ]
-  });
-
-  fs.writeFileSync(
     LOCK_FILE,
-    JSON.stringify({ created: true, verifyId: verifyMsg.id }, null, 2)
+    JSON.stringify({
+      rosterId: rosterMsg.id,
+      verifyId: verifyMsg.id
+    }, null, 2)
   );
+
+  console.log("❄️ Frostmoon UI rebuilt cleanly.");
 }
 
 /* ================= HANDLER ================= */
