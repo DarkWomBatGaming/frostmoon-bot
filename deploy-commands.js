@@ -46,7 +46,7 @@ const commands = [
 },
 {
   name: "listnames",
-  description: "List verified IGNs (names) from used_igns.json (admin)."
+  description: "List all allowed IGNs from igns.json (admin)."
 },
   {
     name: "setcount",
