@@ -75,7 +75,7 @@ async function updateRoster(guild) {
       { name: "Not in Server", value: `**${notInServer}**`, inline: true }
     )
     .setThumbnail(ICON_URL)
-    .setFooter({ text: "• Auto-updated • Active = Verified + Khanrian role" });
+    .setFooter({ text: "• Auto-updated " });
 
   // --- message update logic (using ui_lock.json) ---
   let rosterMsg = null;
