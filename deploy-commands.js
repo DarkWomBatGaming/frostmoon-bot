@@ -36,6 +36,37 @@ if (!config.GUILD_ID) {
 
 // Keep these in sync with your commands/*.js definitions
 const commands = [
+    {
+    name: "unverify",
+    description: "Remove a user from verified list (and remove Khanrian role).",
+    options: [
+      { name: "user", description: "User to unverify", type: 6, required: true },
+      { name: "reason", description: "Optional reason", type: 3, required: false }
+    ]
+  },
+  {
+    name: "whois",
+    description: "Find a verified user by IGN.",
+    options: [
+      { name: "ign", description: "IGN to search", type: 3, required: true }
+    ]
+  },
+  {
+    name: "pruneverified",
+    description: "Remove verified entries for users no longer in the server."
+  },
+  {
+    name: "changeign",
+    description: "Change a verified user's IGN in used_igns.json.",
+    options: [
+      { name: "user", description: "User to edit", type: 6, required: true },
+      { name: "new_ign", description: "New IGN", type: 3, required: true }
+    ]
+  },
+  {
+    name: "health",
+    description: "Show bot health info (admin)."
+  },
   {
   name: "restartbot",
   description: "Restart the bot process via PM2 (admin)."
