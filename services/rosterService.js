@@ -55,7 +55,7 @@ async function updateRoster(guild) {
       { name: "Inactive Members", value: `**${inactive}**`, inline: true }
     )
     .setThumbnail(ICON_URL)
-    .setFooter({ text: "Auto-updated • Total from used_igns.json • Active = verified + Khanrian role" });
+    .setFooter({ text: "• Auto-updated" });
 
   // --- your existing message update logic (using ui_lock.json) ---
   let rosterMsg = null;
