@@ -169,7 +169,9 @@ async function handleInteraction(interaction) {
       return interaction.editReply("🧊 SYSTEM: Already verified.");
     }
 
-    const used = JSON.parse(fs.readFileSync("./data/used_igns.json", "utf8"));
+    const used = readJson("./data/used_igns.json", []);
+used.push({ ign, userId: member.id });
+writeJsonAtomic("./data/used_igns.json", used);
 
     if (!ALLOWED_IGNS.includes(ign)) {
       return interaction.editReply("❌ ACCESS DENIED\n> REASON: INVALID IDENTITY");
