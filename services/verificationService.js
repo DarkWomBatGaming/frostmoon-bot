@@ -1,4 +1,3 @@
-const { readJson, writeJsonAtomic } = require("../utils/storage");
 const fs = require("fs");
 const {
   EmbedBuilder,
@@ -21,14 +20,13 @@ const ICON_URL =
 const BANNER_URL =
   "https://cdn.discordapp.com/attachments/1479200956209041613/1495036786970198147/Frost_Moon_Reborn.webp?ex=69e4c902&is=69e37782&hm=fa3e03d66a30350283d3a8c5587883262a789b43d84d37436c8d483f6efe5fa9";
 
-// Load allowed IGNs
-const ALLOWED_IGNS = JSON.parse(fs.readFileSync("./data/igns.json", "utf8"))
-  .map(i => String(i).toLowerCase());
-
 // Ensure used_igns exists
 if (!fs.existsSync("./data/used_igns.json")) {
   fs.writeFileSync("./data/used_igns.json", "[]");
 }
+
+// Store pending IGN per user (so we don't put IGN into customId)
+const pendingIgnByUserId = new Map(); // userId -> ign
 
 /* ================= UI SETUP ================= */
 async function setupVerification(client) {
@@ -45,7 +43,7 @@ async function setupVerification(client) {
 
   console.log("✅ Old UI cleared.");
 
-  // PANEL 1 (premium banner card)
+  // PANEL 1
   await channel.send({
     embeds: [
       new EmbedBuilder()
@@ -59,7 +57,7 @@ async function setupVerification(client) {
         )
         .setThumbnail(ICON_URL)
         .setImage(BANNER_URL)
-        .setFooter({ text: "Frostmoon Security • Automated Systems" })
+        .setFooter({ text: "Frostmoon Security �� Automated Systems" })
     ]
   });
 
@@ -75,7 +73,7 @@ async function setupVerification(client) {
     ]
   });
 
-  // PANEL 3 (premium verification card + banner)
+  // PANEL 3 (verification)
   const verifyMsg = await channel.send({
     embeds: [
       new EmbedBuilder()
@@ -112,16 +110,40 @@ async function setupVerification(client) {
 
   console.log("❄️ Frostmoon UI rebuilt cleanly.");
 
-  // Try updating roster once on startup (safe: cache-based)
+  // Try updating roster once on startup
   const guild = client.guilds.cache.get(config.GUILD_ID) ?? client.guilds.cache.first();
   if (guild) await updateRoster(guild);
 }
 
-/* ================= HANDLER ================= */
+/* ================= HELPERS ================= */
 function sleep(ms) {
   return new Promise(res => setTimeout(res, ms));
 }
 
+function readAllowedIgnsLower() {
+  try {
+    const data = JSON.parse(fs.readFileSync("./data/igns.json", "utf8"));
+    if (!Array.isArray(data)) return [];
+    return data.map(i => String(i).toLowerCase());
+  } catch {
+    return [];
+  }
+}
+
+function readUsed() {
+  try {
+    const data = JSON.parse(fs.readFileSync("./data/used_igns.json", "utf8"));
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeUsed(list) {
+  fs.writeFileSync("./data/used_igns.json", JSON.stringify(list, null, 2));
+}
+
+/* ================= HANDLER ================= */
 async function handleInteraction(interaction) {
   // BUTTON: help
   if (interaction.isButton() && interaction.customId === "help") {
@@ -136,7 +158,7 @@ async function handleInteraction(interaction) {
     });
   }
 
-  // BUTTON: start (IMPORTANT: do NOT reply/defer before showModal)
+  // BUTTON: start
   if (interaction.isButton() && interaction.customId === "start") {
     const modal = new ModalBuilder()
       .setCustomId("ign_modal")
@@ -154,7 +176,10 @@ async function handleInteraction(interaction) {
 
   // MODAL: submit IGN
   if (interaction.isModalSubmit() && interaction.customId === "ign_modal") {
-    const ign = interaction.fields.getTextInputValue("ign").toLowerCase();
+    const ign = String(interaction.fields.getTextInputValue("ign") || "")
+      .trim()
+      .toLowerCase();
+
     const member = await interaction.guild.members.fetch(interaction.user.id);
 
     await interaction.deferReply({ ephemeral: true });
@@ -169,25 +194,27 @@ async function handleInteraction(interaction) {
       return interaction.editReply("🧊 SYSTEM: Already verified.");
     }
 
-    const used = readJson("./data/used_igns.json", []);
-used.push({ ign, userId: member.id });
-writeJsonAtomic("./data/used_igns.json", used);
+    const allowed = readAllowedIgnsLower(); // reload each time so newly added names work
+    const used = readUsed();
 
-    if (!ALLOWED_IGNS.includes(ign)) {
+    if (!allowed.includes(ign)) {
       return interaction.editReply("❌ ACCESS DENIED\n> REASON: INVALID IDENTITY");
     }
 
-    if (used.find(u => u.ign === ign)) {
+    if (used.find(u => String(u?.ign || "").toLowerCase() === ign)) {
       return interaction.editReply("🔒 ACCESS DENIED\n> REASON: ID ALREADY CLAIMED");
     }
 
+    // store pending ign for this user, then show confirm buttons
+    pendingIgnByUserId.set(interaction.user.id, ign);
+
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(`confirm_${ign}`)
+        .setCustomId("confirm_verify")
         .setLabel("Confirm Awakening")
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
-        .setCustomId("cancel")
+        .setCustomId("cancel_verify")
         .setLabel("Cancel")
         .setStyle(ButtonStyle.Danger)
     );
@@ -206,15 +233,23 @@ writeJsonAtomic("./data/used_igns.json", used);
     });
   }
 
-  // BUTTON: cancel
-  if (interaction.isButton() && interaction.customId === "cancel") {
+  // BUTTON: cancel verify
+  if (interaction.isButton() && interaction.customId === "cancel_verify") {
+    pendingIgnByUserId.delete(interaction.user.id);
     return interaction.update({ content: "> PROCESS TERMINATED", embeds: [], components: [] });
   }
 
-  // BUTTON: confirm
-  if (interaction.isButton() && interaction.customId.startsWith("confirm_")) {
-    const ign = interaction.customId.replace("confirm_", "");
+  // BUTTON: confirm verify
+  if (interaction.isButton() && interaction.customId === "confirm_verify") {
     const member = await interaction.guild.members.fetch(interaction.user.id);
+
+    const ign = pendingIgnByUserId.get(interaction.user.id);
+    if (!ign) {
+      return interaction.reply({
+        ephemeral: true,
+        content: "❌ Verification expired. Please click **Initiate Scan** again."
+      });
+    }
 
     await interaction.update({ content: "> AUTHORIZING...", embeds: [], components: [] });
 
@@ -226,15 +261,32 @@ writeJsonAtomic("./data/used_igns.json", used);
 
     await sleep(900);
 
-    await member.roles.add(config.ROLE_KHANRIAN);
-    await member.roles.remove(config.ROLE_WANDERER);
+    // Final safety: re-check used list right before claiming
+    const used = readUsed();
+    if (used.find(u => String(u?.ign || "").toLowerCase() === ign)) {
+      pendingIgnByUserId.delete(interaction.user.id);
+      return interaction.editReply("🔒 ACCESS DENIED\n> REASON: ID ALREADY CLAIMED");
+    }
 
-    const used = JSON.parse(fs.readFileSync("./data/used_igns.json", "utf8"));
+    // Roles MUST succeed, otherwise do not claim IGN
+    try {
+      await member.roles.add(config.ROLE_KHANRIAN);
+      await member.roles.remove(config.ROLE_WANDERER);
+    } catch (e) {
+      console.error("❌ Verification role update failed:", e);
+      return interaction.editReply(
+        "❌ VERIFICATION FAILED\n" +
+          "> REASON: BOT COULD NOT UPDATE ROLES\n" +
+          `> DETAILS: ${e?.message || e}`
+      );
+    }
+
     used.push({ ign, userId: member.id });
-    fs.writeFileSync("./data/used_igns.json", JSON.stringify(used, null, 2));
+    writeUsed(used);
+
+    pendingIgnByUserId.delete(interaction.user.id);
 
     await updateRoster(interaction.guild);
-
     return interaction.editReply("✅ ACCESS GRANTED\n❄️ Welcome to Frostmoon.");
   }
 }
