@@ -30,20 +30,39 @@ async function updateRoster(guild) {
 
   // --- verified list ---
   const used = readUsed();
-  const verifiedIds = used
-    .map(u => String(u?.userId || "").trim())
-    .filter(Boolean);
+
+  // de-dupe user IDs (prevents wrong totals)
+  const verifiedIds = [
+    ...new Set(
+      used.map(u => String(u?.userId || "").trim()).filter(Boolean)
+    )
+  ];
 
   const total = verifiedIds.length;
 
-  // --- active within verified list = has Khanrian role ---
   let active = 0;
+  let notInServer = 0;
+
   for (const id of verifiedIds) {
-    const member = guild.members.cache.get(id);
-    if (member && member.roles.cache.has(config.ROLE_KHANRIAN)) active++;
+    // try cache first
+    let member = guild.members.cache.get(id) || null;
+
+    // fetch if not cached
+    if (!member) {
+      member = await guild.members.fetch(id).catch(() => null);
+    }
+
+    if (!member) {
+      notInServer++;
+      continue;
+    }
+
+    if (member.roles.cache.has(config.ROLE_KHANRIAN)) {
+      active++;
+    }
   }
 
-  const inactive = Math.max(0, total - active);
+  const inactive = Math.max(0, total - active - notInServer);
 
   const embed = new EmbedBuilder()
     .setColor(0x132f4c)
@@ -52,28 +71,34 @@ async function updateRoster(guild) {
     .addFields(
       { name: "Total Members", value: `**${total}**`, inline: true },
       { name: "Active Members", value: `**${active}**`, inline: true },
-      { name: "Inactive Members", value: `**${inactive}**`, inline: true }
+      { name: "Inactive Members", value: `**${inactive}**`, inline: true },
+      { name: "Not in Server", value: `**${notInServer}**`, inline: true }
     )
     .setThumbnail(ICON_URL)
-    .setFooter({ text: "• Auto-updated" });
+    .setFooter({ text: "• Auto-updated • Active = Verified + Khanrian role" });
 
-  // --- your existing message update logic (using ui_lock.json) ---
+  // --- message update logic (using ui_lock.json) ---
   let rosterMsg = null;
+  let lock = null;
+
   try {
-    const lock = JSON.parse(fs.readFileSync(LOCK_FILE, "utf8"));
+    lock = JSON.parse(fs.readFileSync(LOCK_FILE, "utf8"));
     if (lock?.rosterId) {
       rosterMsg = await channel.messages.fetch(lock.rosterId).catch(() => null);
     }
   } catch {
-    // ignore
+    lock = null;
   }
 
   if (rosterMsg) {
     await rosterMsg.edit({ embeds: [embed] });
   } else {
     const msg = await channel.send({ embeds: [embed] });
-    // If you want, save msg.id back into ui_lock.json here (depends on your current logic)
+
+    // save new rosterId so it edits the same message next time
+    ensureDataDir();
+    const nextLock = { ...(lock || {}), rosterId: msg.id };
+    fs.writeFileSync(LOCK_FILE, JSON.stringify(nextLock, null, 2));
   }
 }
-
 module.exports = { updateRoster };
