@@ -28,10 +28,8 @@ function readUsed() {
 async function updateRoster(guild) {
   const channel = await guild.channels.fetch(config.CHANNEL_ID);
 
-  // --- verified list ---
   const used = readUsed();
 
-  // de-dupe user IDs (prevents wrong totals)
   const verifiedIds = [
     ...new Set(
       used.map(u => String(u?.userId || "").trim()).filter(Boolean)
@@ -40,29 +38,31 @@ async function updateRoster(guild) {
 
   const total = verifiedIds.length;
 
-  let active = 0;
+  let online = 0;
+  let offline = 0;
+  let unknown = 0;
   let notInServer = 0;
 
   for (const id of verifiedIds) {
-    // try cache first
+    // fetch member so presence can populate when available
     let member = guild.members.cache.get(id) || null;
-
-    // fetch if not cached
-    if (!member) {
-      member = await guild.members.fetch(id).catch(() => null);
-    }
+    if (!member) member = await guild.members.fetch(id).catch(() => null);
 
     if (!member) {
       notInServer++;
       continue;
     }
 
-    if (member.roles.cache.has(config.ROLE_KHANRIAN)) {
-      active++;
-    }
-  }
+    const status = member.presence?.status; // 'online'|'idle'|'dnd'|'offline'
 
-  const inactive = Math.max(0, total - active - notInServer);
+    if (!status) {
+      unknown++;
+      continue;
+    }
+
+    if (status === "offline") offline++;
+    else online++;
+  }
 
   const embed = new EmbedBuilder()
     .setColor(0x132f4c)
@@ -70,14 +70,14 @@ async function updateRoster(guild) {
     .setDescription("Verified members detected.")
     .addFields(
       { name: "Total Members", value: `**${total}**`, inline: true },
-      { name: "Active Members", value: `**${active}**`, inline: true },
-      { name: "Inactive Members", value: `**${inactive}**`, inline: true },
+      { name: "Online (Active)", value: `**${online}**`, inline: true },
+      { name: "Offline", value: `**${offline}**`, inline: true },
+      { name: "Unknown", value: `**${unknown}**`, inline: true },
       { name: "Not in Server", value: `**${notInServer}**`, inline: true }
     )
     .setThumbnail(ICON_URL)
-    .setFooter({ text: "• Auto-updated " });
+    .setFooter({ text: "• Auto-updated • Active = Online presence" });
 
-  // --- message update logic (using ui_lock.json) ---
   let rosterMsg = null;
   let lock = null;
 
@@ -95,10 +95,10 @@ async function updateRoster(guild) {
   } else {
     const msg = await channel.send({ embeds: [embed] });
 
-    // save new rosterId so it edits the same message next time
     ensureDataDir();
     const nextLock = { ...(lock || {}), rosterId: msg.id };
     fs.writeFileSync(LOCK_FILE, JSON.stringify(nextLock, null, 2));
   }
 }
+
 module.exports = { updateRoster };
