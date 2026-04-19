@@ -14,6 +14,9 @@ if (!process.env.TOKEN) {
 
 const client = new Client({
   intents: [
+    GatewayIntentBits.GuildPresences,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMembers // required for role checks on cached members
   ],
