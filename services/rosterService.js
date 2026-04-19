@@ -28,6 +28,9 @@ function readUsed() {
 async function updateRoster(guild) {
   const channel = await guild.channels.fetch(config.CHANNEL_ID);
 
+    // Small server: fetch everyone + presences so member.presence is available
+  await guild.members.fetch({ withPresences: true }).catch(() => {});
+
   const used = readUsed();
 
   const verifiedIds = [
